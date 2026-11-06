@@ -201,4 +201,5 @@ export class Journey extends Phaser.Scene {
   }
  }
 }
-export function createWorld(parent:HTMLElement,bridge:WorldBridge){return new Phaser.Game({type:Phaser.AUTO,parent,width:1280,height:800,transparent:true,pixelArt:true,roundPixels:true,antialias:false,scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},render:{powerPreference:'low-power'},fps:{target:60,min:24},scene:[new Atmosphere(),new Journey(bridge)],audio:{noAudio:true},banner:false});}
+// React handles navigation; Phaser must not suppress browser clicks after touch events.
+export function createWorld(parent:HTMLElement,bridge:WorldBridge){return new Phaser.Game({type:Phaser.AUTO,parent,width:1280,height:800,transparent:true,input:{keyboard:false,mouse:false,touch:false,gamepad:false},pixelArt:true,roundPixels:true,antialias:false,scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},render:{powerPreference:'low-power'},fps:{target:60,min:24},scene:[new Atmosphere(),new Journey(bridge)],audio:{noAudio:true},banner:false});}
