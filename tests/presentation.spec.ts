@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-test('all 18 chapters, narration, transition lock, back, mute and replay',async({page})=>{
+test('all 18 chapters, narration, transition lock, back, mute and replay',async({page},testInfo)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('response',r=>{if(r.status()>=400)errors.push(`${r.status()} ${r.url()}`);});
  page.on('requestfailed',r=>errors.push(`${r.url()}: ${r.failure()?.errorText}`));
@@ -23,11 +23,20 @@ test('all 18 chapters, narration, transition lock, back, mute and replay',async(
   await page.keyboard.press('ArrowRight');
   await expect(page.locator('.dialogue-bottom')).toContainText(i===18?'КОНЕЦ':'ПРОДОЛЖИТЬ');
   await expect(page.locator('.dialogue p[aria-hidden]')).not.toBeEmpty();
-  if(i<18)await page.keyboard.press('ArrowRight');
+  if(i===17){
+   await page.emulateMedia({reducedMotion:'no-preference'});
+   await page.keyboard.press('ArrowRight');
+   await expect(page.locator('.presentation')).toHaveAttribute('data-finale','gathering');
+   await expect(page.locator('.presentation')).toHaveAttribute('data-finale','singularity',{timeout:15000});
+   await page.emulateMedia({reducedMotion:'reduce'});
+  }else if(i<18)await page.keyboard.press('ArrowRight');
  }
  await expect(page.getByText('Спасибо за внимание!',{exact:true})).toBeVisible();
+ await expect(page.locator('.presentation')).toHaveAttribute('data-finale','singularity');
+ await page.screenshot({path:testInfo.outputPath('singularity.png')});
  await page.keyboard.press('ArrowRight');await expect(page.locator('.scene-count')).toContainText('18');
  await page.keyboard.press('ArrowLeft');await expect(page.locator('.scene-count')).toContainText('17');
+ await expect(page.locator('.presentation')).toHaveAttribute('data-finale','idle');
  await expect(page.locator('.presentation')).not.toHaveClass(/is-moving/);
  await page.getByRole('button',{name:'Выключить звук'}).click();await expect(page.getByRole('button',{name:'Включить звук'})).toHaveAttribute('aria-pressed','true');
  await page.getByRole('button',{name:'Начать заново'}).click();await expect(page.locator('.scene-count')).toContainText('01');
@@ -56,6 +65,7 @@ test('Android tablet touch, text bounds and landscape resizing',async({browser,b
   await expect(page.locator('.dialogue-bottom')).toContainText(i===18?'КОНЕЦ':'ПРОДОЛЖИТЬ');
  }
  await expect(page.getByText('Спасибо за внимание!',{exact:true})).toBeVisible();
+ await expect(page.locator('.presentation')).toHaveAttribute('data-finale','singularity');
  await context.close();
 });
 

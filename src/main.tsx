@@ -13,6 +13,7 @@ function Icon({name}:{name:'sound'|'mute'|'back'|'restart'|'expand'|'next'}){
 function App(){
  const host=useRef<HTMLDivElement>(null),game=useRef<Phaser.Game|null>(null),phaseRef=useRef<Phase>('intro'),indexRef=useRef(0),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const [phase,setPhase]=useState<Phase>('intro'),[index,setIndex]=useState(0),[typed,setTyped]=useState(0),[ready,setReady]=useState(false),[muted,setMuted]=useState(()=>{try{return localStorage.getItem('tree-muted')==='true';}catch{return false;}}),[fullscreen,setFullscreen]=useState(false),[error,setError]=useState(false);
+ const [finale,setFinale]=useState<'idle'|'gathering'|'singularity'>('idle');
  const c=chapters[index];
  const changePhase=useCallback((p:Phase)=>{phaseRef.current=p;setPhase(p);},[]);
  const scene=()=>game.current?.scene.getScene('journey') as Journey|undefined;
@@ -24,7 +25,7 @@ function App(){
  },[changePhase,stopTyping]);
  useEffect(()=>{
   if(!host.current)return;
-  try{game.current=createWorld(host.current,{ready:()=>setReady(true),arrived:narrate});}catch{setError(true);}
+  try{game.current=createWorld(host.current,{ready:()=>setReady(true),arrived:narrate,finale:setFinale});}catch{setError(true);}
   return()=>{stopTyping();game.current?.destroy(true);game.current=null;};
  },[narrate,stopTyping]);
  useEffect(()=>{audio.setMuted(muted);try{localStorage.setItem('tree-muted',String(muted));}catch{}},[muted]);
@@ -45,8 +46,8 @@ function App(){
  useEffect(()=>{const sync=()=>setFullscreen(Boolean(document.fullscreenElement));document.addEventListener('fullscreenchange',sync);return()=>document.removeEventListener('fullscreenchange',sync);},[]);
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.target instanceof Element&&e.target.closest('button')&&['Enter',' '].includes(e.key))return;if(['ArrowRight',' ','Enter'].includes(e.key)){e.preventDefault();next();}if(e.key==='ArrowLeft'){e.preventDefault();go(Math.max(0,indexRef.current-1));}if(e.key==='Home'){e.preventDefault();restart();}if(e.key.toLowerCase()==='m')setMuted(v=>!v);if(e.key.toLowerCase()==='f')void toggleFullscreen();};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[next,go,restart,toggleFullscreen]);
  const intro=phase==='intro',moving=phase==='moving';
- return <main className={`presentation ${intro?'is-intro':''} ${moving?'is-moving':''}`} style={{'--accent':c.accent} as React.CSSProperties} onClick={e=>{if(!(e.target as HTMLElement).closest('button,a,summary'))next();}}>
-  <div className="world" ref={host} role="img" aria-label="Пиксельное дерево коммуникаций: маленький рассказчик путешествует по его ветвям" />
+ return <main className={`presentation ${intro?'is-intro':''} ${moving?'is-moving':''} ${finale!=='idle'?'is-finale':''}`} data-finale={finale} style={{'--accent':['#83e9ff','#b8b1ff','#dca9ef'][index%3]} as React.CSSProperties} onClick={e=>{if(!(e.target as HTMLElement).closest('button,a,summary'))next();}}>
+  <div className="world" ref={host} role="img" aria-label={finale==='idle'?'Космическое дерево коммуникаций: путешественник в остроконечной шляпе с посохом':finale==='gathering'?'Путешественник перемещается в центр, линии тем закручиваются в сингулярность':'Путешественник в центре светящейся спиральной сингулярности'} />
   <div className="vignette"/>
   <header className="topbar">
    <div className="brand"><span className="brand-mark" aria-hidden="true"><i/><i/><i/><i/><i/></span><span>ДЕРЕВО<br/><b>КОММУНИКАЦИЙ</b></span></div>
@@ -62,7 +63,7 @@ function App(){
    <p className="cover-topic">Влияние социальных сетей<br/>на корпоративные коммуникации</p>
    <button className="begin" disabled={!ready||error} onClick={next}><span>{error?'Не удалось запустить графику':ready?'Начать путешествие':'Пробуждаем лес…'}</span><Icon name="next"/></button>
    <div className="cover-details"><span>7–8 МИНУТ</span><i/><span>ОДНО КАСАНИЕ — НОВАЯ СЦЕНА</span></div>
-   <span className="hero-intro-label">ваш проводник <span>↘</span></span>
+   <span className="hero-intro-label">ваш проводник <span>↙</span></span>
   </section> : <>
    <section className="scene-heading" aria-label={`Сцена ${index+1} из 18`}><div className="eyebrow"><span/>{String(index+1).padStart(2,'0')} / {c.chapter}</div><h1>{c.title}</h1></section>
    <div className="location"><span className="location-dot"/>{moving?'В пути…':c.place}</div>
