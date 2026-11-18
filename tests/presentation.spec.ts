@@ -8,9 +8,23 @@ async function jump(page: Page, label: string) {
   await menu.getByRole('button', { name: new RegExp(label) }).click();
 }
 
+async function expectCityRestored(page: Page) {
+  const city = page.getByRole('main', { name: 'Карта исследования' });
+  await expect(
+    city.getByRole('button', { name: 'Burger King', exact: true }),
+  ).toBeInViewport();
+  await expect(
+    city.getByRole('button', { name: 'Молочай', exact: true }),
+  ).toBeInViewport();
+  await expect(
+    city.getByRole('button', { name: /^Участник [1-4]$/ }),
+  ).toHaveCount(4);
+}
+
 test('city, team and two venue entrances', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  await page.clock.install();
   await page.goto('./');
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     'клиентского опыта',
@@ -31,7 +45,13 @@ test('city, team and two venue entrances', async ({ page }) => {
     'Добавить цель и задачи',
   );
   await page.getByRole('button', { name: 'Назад в город' }).click();
+  await expectCityRestored(page);
+
+  // Keep the team scene in its fade-in phase so the immediate return is reproducible.
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 500);
   await page.getByRole('button', { name: 'Участник 4', exact: true }).click();
+  await page.clock.runFor(700);
+  await expect(page.locator('.curtain')).toHaveClass('curtain in');
   await expect(
     page.getByRole('heading', { name: '[Имя участника 4]' }),
   ).toBeVisible();
@@ -40,6 +60,12 @@ test('city, team and two venue entrances', async ({ page }) => {
     page.getByRole('heading', { name: '[Имя участника 1]' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Назад в город' }).click();
+  await expect(page.locator('.curtain')).toHaveClass('curtain out-short');
+  await page.clock.runFor(430);
+  await expect(page.locator('.curtain')).toHaveClass('curtain in');
+  await page.clock.resume();
+  await expectCityRestored(page);
+
   await page.getByRole('button', { name: 'Молочай', exact: true }).hover();
   await page
     .getByRole('button', { name: 'Открыть исследование Молочай' })
@@ -47,6 +73,8 @@ test('city, team and two venue entrances', async ({ page }) => {
   await expect(page.locator('.chapter-3')).toContainText(
     'ТЦ «Амстердам», этаж −1',
   );
+  await page.getByRole('button', { name: 'Назад в город' }).click();
+  await expectCityRestored(page);
   expect(errors).toEqual([]);
 });
 
