@@ -4,6 +4,8 @@ import {
   conclusions,
   localFile,
   media,
+  narrator,
+  riskGroups,
   research,
   summary,
   team,
@@ -11,6 +13,7 @@ import {
 } from './data/content';
 import type { Field, MediaCategory, Venue } from './data/content';
 import { Avatar, Photo } from './City';
+import { Metrics, RawJournal, WaitTable } from './Evidence';
 import { chapters, number, timecode } from './story';
 
 export function Fields({ fields }: { fields: Field[] }) {
@@ -20,7 +23,7 @@ export function Fields({ fields }: { fields: Field[] }) {
         <div key={label}>
           <dt>{label}</dt>
           <dd className={value ? '' : 'placeholder'}>
-            {value || '[Добавить данные]'}
+            {value || '—'}
           </dd>
         </div>
       ))}
@@ -70,7 +73,7 @@ function Toolboard({ items }: { items: Field[] }) {
           </button>
           {selected === index && (
             <p className={item.value ? '' : 'placeholder'}>
-              {item.value || '[Добавить данные]'}
+              {item.value || '—'}
             </p>
           )}
         </div>
@@ -99,12 +102,13 @@ function Team({
             onClick={() => onSelect(index)}
           >
             <Avatar id={index} action={index === selected ? 'wave' : 'idle'} />
-            <span>{index === 0 ? 'Рассказчик' : `Участник ${index + 1}`}</span>
+            <span>{member.name.split(' ')[0]}<small>{member.role}</small></span>
           </button>
         ))}
       </div>
       <div className="detail team-detail">
         <h3>{person.name || `[Имя участника ${selected + 1}]`}</h3>
+        <TeamTool key={selected} member={selected} />
         <Fields fields={person.fields} />
         {person.photo && (
           <Photo file={person.photo} name={person.name || 'Фото участника'} />
@@ -114,27 +118,40 @@ function Team({
   );
 }
 
+function TeamTool({ member }: { member: number }) {
+  const [count, setCount] = useState(0);
+  return (
+    <div className="team-tool">
+      {member === 0 && <span className="stopwatch" aria-label="Секундомер"><i /></span>}
+      {member === 1 && <span className="pixel-notebook">«Оплата картой или наличными?»</span>}
+      {member === 2 && <button onClick={() => setCount(count + 1)}>Демо счётчика посетителей <b>{number(count)}</b> +</button>}
+      {member === 3 && <span className="flow-demo" aria-label="Маршрут посетителя"><i /> <i /> <i /></span>}
+    </div>
+  );
+}
+
 function Portrait({ venue }: { venue: Venue }) {
   const [selection, select] = useState(0);
   const { jobs, portrait } = research[venue];
+  const job = jobs[selection];
   return (
     <div className="split">
       <div className="portrait">
-        <Avatar id={2} />
         <div className="job-points" role="group" aria-label="Job stories">
-          {jobs.map((job, index) => (
-            <button
-              aria-pressed={selection === index}
-              key={job.label}
-              onClick={() => select(index)}
-            >
-              {job.label}
-            </button>
+          {jobs.map((item, index) => (
+            <button aria-pressed={selection === index} key={item.label} onClick={() => select(index)}>{item.label}</button>
           ))}
         </div>
       </div>
       <div className="detail">
-        <Fields fields={[...portrait, jobs[selection]]} />
+        <div className={`job-stage interior-${venue}`} key={job.label}>
+          <div className={`job-prop prop-${job.prop}`} aria-hidden="true" />
+          <Avatar id={4 + selection} action="walk" />
+          <b>{job.label}</b>
+        </div>
+        <p><small>Гипотеза клиентской задачи</small></p>
+        <p>{job.value}</p>
+        <small>{portrait}</small>
       </div>
     </div>
   );
@@ -146,119 +163,21 @@ function Journey({ venue }: { venue: Venue }) {
   return (
     <div className="journey">
       <div className={`mini-floor interior-${venue}`}>
-        <div className="floor-furniture" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-          <i />
-        </div>
-        <div
-          className="journey-route"
-          role="group"
-          aria-label="Шаблон этапов пути"
-        >
-          {steps.map(({ label }, index) => (
-            <button
-              aria-pressed={selection === index}
-              key={index}
-              onClick={() => select(index)}
-            >
-              <i aria-hidden="true">
-                {['▥', '▤', '▦', '◷', '□', '↗'][index % 6]}
-              </i>
-              <span>{label}</span>
+        <div className="floor-furniture" aria-hidden="true"><i /><i /><i /><i /></div>
+        <div className="journey-route" role="group" aria-label="Этапы клиентского пути">
+          <div className="journey-customer" style={{ left: `${(selection + .5) / steps.length * 100}%` }}>
+            <Avatar id={4} action="walk" />
+          </div>
+          {steps.map(({ label, critical }, index) => (
+            <button aria-pressed={selection === index} key={label} onClick={() => select(index)} data-critical={critical}>
+              <i aria-hidden="true">{['▥', '▤', '▦', '◷', '□', '↗'][index]}</i><span>{label}</span>
             </button>
           ))}
         </div>
       </div>
       <div className="detail">
-        <h3>
-          {steps[selection].label} <small>· Момент истины</small>
-        </h3>
-        <Fields fields={steps[selection].fields} />
-      </div>
-    </div>
-  );
-}
-
-function Metrics({ venue }: { venue: Venue }) {
-  const [selection, select] = useState(0);
-  const [compare, setCompare] = useState(false);
-  const metrics = research[venue].metrics;
-  const ids: Venue[] = compare ? ['burger', 'tea'] : [venue];
-  const scale =
-    metrics[selection].unit === '%'
-      ? 100
-      : Math.max(
-          1,
-          ...ids.map((id) => research[id].metrics[selection].value ?? 0),
-        );
-  return (
-    <div className="split metric-layout">
-      <div className="selectors" role="group" aria-label="Метрики">
-        {metrics.map((metric, index) => (
-          <button
-            key={metric.label}
-            aria-pressed={selection === index}
-            onClick={() => select(index)}
-          >
-            {metric.label}
-          </button>
-        ))}
-      </div>
-      <div className="detail">
-        <button
-          aria-pressed={compare}
-          className="compare"
-          onClick={() => setCompare(!compare)}
-        >
-          Сравнить заведения
-        </button>
-        <div className="funnel" aria-label="Воронка визитов и покупок">
-          {metrics.slice(0, 2).map((metric, index) => {
-            const count = metrics[0].value;
-            const width =
-              metric.value === null || count === null || count <= 0
-                ? 0
-                : Math.min(100, (100 * metric.value) / count);
-            return (
-              <button
-                key={metric.label}
-                aria-pressed={selection === index}
-                onClick={() => select(index)}
-              >
-                <span style={{ width: `${width}%` }} data-filled={width > 0} />
-                <b>{index === 0 ? 'Визиты' : 'Покупки'}</b>
-                <small>{metric.value ?? '—'}</small>
-              </button>
-            );
-          })}
-        </div>
-        <h3>{metrics[selection].label}</h3>
-        {ids.map((id) => {
-          const metric = research[id].metrics[selection];
-          const percent =
-            metric.value === null
-              ? 0
-              : Math.min(100, (100 * Math.max(0, metric.value)) / scale);
-          return (
-            <div className="measure" key={id}>
-              <div>
-                <b>{venues[id].name}</b>
-                <span>
-                  {metric.value === null
-                    ? 'Данные ожидаются'
-                    : `${metric.value.toLocaleString('ru-RU')} ${metric.unit}`}
-                </span>
-              </div>
-              <div aria-hidden="true" className="track">
-                <i
-                  style={{ width: `${percent}%`, background: venues[id].color }}
-                />
-              </div>
-            </div>
-          );
-        })}
+        <h3>{steps[selection].label} {steps[selection].critical && <small>· Момент истины</small>}</h3>
+        <p>{steps[selection].text}</p>
       </div>
     </div>
   );
@@ -271,44 +190,27 @@ function Observations({ venue }: { venue: Venue }) {
   return (
     <div className="split observations">
       <div className="observation-board">
-        <div className="observation-plan" aria-label="Схема заведения">
-          {items.map(
-            (entry, index) =>
-              entry.point && (
-                <button
-                  key={index}
-                  aria-label={`Наблюдение ${index + 1} на схеме`}
-                  aria-pressed={selection === index}
-                  style={{
-                    left: `${entry.point.x}%`,
-                    top: `${entry.point.y}%`,
-                  }}
-                  onClick={() => select(index)}
-                >
-                  {index + 1}
-                </button>
-              ),
-          )}
-        </div>
-        <div className="selectors" role="group" aria-label="Наблюдения">
-          {items.map(({ title }, index) => (
-            <button
-              key={index}
-              aria-pressed={selection === index}
-              onClick={() => select(index)}
-            >
-              {title || `[Наблюдение ${index + 1}]`}
+        <div className={`observation-plan interior-${venue}`} aria-label="Схема заведения">
+          <div className="floor-furniture" aria-hidden="true"><i /><i /><i /><i /></div>
+          <div className="observation-narrator" style={{ left: `calc(${item.point.x}% - 30px)`, top: `calc(${item.point.y}% - 30px)` }}>
+            <Avatar id={narrator} action="walk" />
+          </div>
+          {items.map(({ point, title, lines }, index) => (
+            <button key={title} aria-label={title + ' на схеме'} aria-pressed={selection === index}
+              style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => select(index)}>
+              {lines.length ? '···' : '◆'}
             </button>
           ))}
         </div>
+        <div className="selectors" role="group" aria-label="Наблюдения">
+          {items.map(({ title }, index) => <button key={title} aria-pressed={selection === index} onClick={() => select(index)}>{title}</button>)}
+        </div>
       </div>
       <div className="detail observation-detail">
-        <Photo
-          name={item.title || `Наблюдение ${selection + 1}`}
-          file={item.photo}
-          tone={venue}
-        />
-        <Fields fields={item.fields} />
+        <h3>{item.title}</h3>
+        <p><small>{item.kind}</small></p>
+        {item.lines.length > 0 && <ul className="dialogue-lines">{item.lines.map((line) => <li key={line}>{line}</li>)}</ul>}
+        <p><b>Заметка команды.</b> {item.note}</p>
       </div>
     </div>
   );
@@ -317,8 +219,18 @@ function Observations({ venue }: { venue: Venue }) {
 function Recommendations({ venue }: { venue: Venue }) {
   const [selection, select] = useState(0);
   const items = research[venue].recommendations;
+  const [ratings, setRatings] = useState<Partial<Record<number, { effort: number | null; effect: number | null }>>>(() => {
+    try { return JSON.parse(localStorage.getItem(`recommendation-ratings-${venue}`) ?? '{}') ?? {}; } catch { return {}; }
+  });
+  const [after, setAfter] = useState(false);
   const item = items[selection];
-  const rated = items.filter(
+  function rate(key: 'effort' | 'effect', value: string) {
+    const current = ratings[selection] ?? { effort: item.effort, effect: item.effect };
+    const next = { ...ratings, [selection]: { ...current, [key]: value ? Number(value) : null } };
+    setRatings(next);
+    try { localStorage.setItem(`recommendation-ratings-${venue}`, JSON.stringify(next)); } catch { /* Ratings still work for the current scene. */ }
+  }
+  const rated = items.map((entry, index) => ({ ...entry, ...ratings[index], index })).filter(
     ({ effort, effect }) =>
       effort !== null &&
       effect !== null &&
@@ -334,7 +246,7 @@ function Recommendations({ venue }: { venue: Venue }) {
           <span className="matrix-y">Эффект ↑</span>
           <span className="matrix-x">Сложность →</span>
           <div className="matrix-grid">
-            {rated.length === 0 && <small>[Добавить оценки 1–5]</small>}
+            {rated.length === 0 && <small>Оценки пока не выставлены</small>}
             {Array.from({ length: 25 }, (_, cell) => {
               const effect = 5 - Math.floor(cell / 5),
                 effort = 1 + (cell % 5);
@@ -346,7 +258,7 @@ function Recommendations({ venue }: { venue: Venue }) {
                         entry.effect === effect && entry.effort === effort,
                     )
                     .map((entry) => {
-                      const index = items.indexOf(entry);
+                      const index = entry.index;
                       return (
                         <button
                           key={index}
@@ -380,92 +292,63 @@ function Recommendations({ venue }: { venue: Venue }) {
         </div>
       </div>
       <div className="detail">
-        <h3>{item.title || `[Рекомендация ${selection + 1}]`}</h3>
+        <h3>{item.title}</h3>
+        <button className="solution-preview" aria-pressed={after} onClick={() => setAfter(!after)}>
+          <span aria-hidden="true">{after ? '▦' : '▤'}</span>
+          <b>{after ? item.after : item.before}</b>
+          <small>{after ? 'Показать проблему' : 'Показать прототип →'}</small>
+        </button>
+        <div className="rating-controls">
+          {(['effect', 'effort'] as const).map((key) => <label key={key}>
+            {key === 'effect' ? 'Эффект' : 'Сложность'}
+            <select value={ratings[selection]?.[key] ?? item[key] ?? ''} onChange={(event) => rate(key, event.target.value)}>
+              <option value="">—</option>
+              {[1, 2, 3, 4, 5].map((score) => <option key={score}>{score}</option>)}
+            </select>
+          </label>)}
+        </div>
         <Fields fields={item.fields} />
       </div>
     </div>
   );
 }
 
-function Timeline({ venue }: { venue: Venue }) {
-  const [selection, select] = useState(0);
-  const entries = research[venue].quickWins;
-  const item = entries[selection];
+function Timeline() {
+  const [active, select] = useState<{ venue: Venue; step: number }>({ venue: 'tea', step: 0 });
+  const item = research[active.venue].quickWins[active.step];
   return (
     <div className="timeline">
-      <div className="time-labels">
-        <span>0 ч</span>
-        <span>24 ч</span>
-        <span>48 ч</span>
-      </div>
-      <div className="time-track">
-        {entries.map(
-          ({ hour }, index) =>
-            hour !== null &&
-            hour >= 0 &&
-            hour <= 48 && (
-              <button
-                key={index}
-                style={{ left: `${(hour / 48) * 100}%` }}
-                aria-label={`Мероприятие ${index + 1}, ${hour} ч`}
-                aria-pressed={selection === index}
-                onClick={() => select(index)}
-              >
-                {index + 1}
+      <div className="time-labels"><span>0 ч</span><span>12 ч</span><span>24 ч</span><span>48 ч</span></div>
+      {(['tea', 'burger'] as const).map((venue) => (
+        <div className="action-lane" key={venue}>
+          <b>{venues[venue].name}</b>
+          <div className="timeline-slots" role="group" aria-label={venues[venue].name}>
+            {research[venue].quickWins.map((entry, step) => (
+              <button key={entry.title} aria-pressed={active.venue === venue && active.step === step} onClick={() => select({ venue, step })}>
+                <small>{entry.period}</small>{entry.title}
               </button>
-            ),
-        )}
-      </div>
-      <div
-        className="selectors timeline-slots"
-        role="group"
-        aria-label="Мероприятия"
-      >
-        {entries.map(({ title }, index) => (
-          <button
-            key={index}
-            aria-pressed={selection === index}
-            onClick={() => select(index)}
-          >
-            {title || `[Мероприятие ${index + 1}]`}
-          </button>
-        ))}
-      </div>
-      <div className="detail">
-        <Fields
-          fields={[
-            { label: 'Мероприятие', value: item.value },
-            {
-              label: 'Срок',
-              value: item.hour === null ? '' : `${item.hour} ч`,
-            },
-          ]}
-        />
-      </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="detail"><h3>{item.title} · {item.period}</h3><Fields fields={item.fields} /></div>
     </div>
   );
 }
 
-function Risks({ venue }: { venue: Venue }) {
-  const [selection, select] = useState(0);
-  const items = research[venue].risks;
+function Risks() {
+  const [selected, select] = useState(riskGroups[0].items[0]);
   return (
     <div className="split">
-      <div className="risk-map" role="group" aria-label="Неизвестные участки">
-        {items.map(({ label }, index) => (
-          <button
-            key={label}
-            aria-pressed={selection === index}
-            onClick={() => select(index)}
-          >
-            <i aria-hidden="true">?</i>
-            {label}
-          </button>
+      <div className="risk-map">
+        {riskGroups.map(({ title, items }) => (
+          <div key={title} role="group" aria-label={title}>
+            <h3>{title}</h3>
+            {items.map((item) => <button key={item.label} aria-pressed={item === selected} onClick={() => select(item)}>{item.label}</button>)}
+          </div>
         ))}
       </div>
-      <div className="detail">
-        <Fields fields={[items[selection]]} />
-      </div>
+      <div className="detail"><Fields fields={[selected]} /></div>
     </div>
   );
 }
@@ -499,17 +382,17 @@ export function ChapterScene({
             <p className="venue-address">{venues[selected].address}</p>
           )}
         </div>
-        {index >= 4 && index <= 11 && (
+        {index >= 4 && index <= 9 && (
           <Tabs active={selected} onChange={setVenue} />
         )}
       </div>
-      <div className="chapter-content" key={index === 7 ? 'metrics' : selected}>
+      <div className="chapter-content" key={selected}>
         {index === 1 && <Team selected={member} onSelect={setMember} />}
         {(index === 2 || index === 3) && (
           <div className="split context">
             <Photo
               file={venues[selected].photo}
-              name={venues[selected].name}
+              name={`Пиксельная иллюстрация · ${venues[selected].name}`}
               tone={selected}
             />
             <div className="detail">
@@ -523,8 +406,8 @@ export function ChapterScene({
         {index === 7 && <Metrics venue={selected} />}
         {index === 8 && <Observations venue={selected} />}
         {index === 9 && <Recommendations venue={selected} />}
-        {index === 10 && <Timeline venue={selected} />}
-        {index === 11 && <Risks venue={selected} />}
+        {index === 10 && <Timeline />}
+        {index === 11 && <Risks />}
         {index === 12 && (
           <div className="conclusions">
             <Fields fields={conclusions} />
@@ -549,12 +432,15 @@ export function Appendix() {
     <>
       <h2 id="dialog-title">Приложения</h2>
       <div className="appendix-list">
+        <details><summary>Полевые записи</summary><RawJournal /></details>
+        <details><summary>Таблицы замеров и расчёт</summary><WaitTable /></details>
+        <details><summary>Дополнительный график и оценки</summary><Metrics venue="tea" /></details>
         {appendix.map((entry) => (
           <details key={entry.title}>
             <summary>{entry.title}</summary>
             <p>{entry.text || '[Добавить материал]'}</p>
             {localFile(entry.file) && (
-              <a href={localFile(entry.file)} target="_blank" rel="noreferrer">
+              <a href={localFile(entry.file)} download={entry.file.split('/').at(-1)} target="_blank" rel="noreferrer">
                 Открыть файл ↗
               </a>
             )}
@@ -563,10 +449,9 @@ export function Appendix() {
       </div>
       <h3>Медиатека</h3>
       <div className="appendix-list">
-        {(Object.keys(media) as MediaCategory[]).map((id) => (
+        {(Object.keys(media) as MediaCategory[]).filter((id) => media[id].length > 0).map((id) => (
           <details key={id}>
             <summary>{mediaLabels[id]}</summary>
-            {!media[id].length && <p>[Добавить материалы]</p>}
             <div className="media-grid">
               {media[id].map((item) => (
                 <Photo key={item.file} name={item.alt} file={item.file} />
@@ -583,11 +468,11 @@ export function Summary() {
   return (
     <main className="summary-page">
       <nav className="paper-actions">
-        <a href="./">← К презентации</a>
+        <a href={location.pathname}>← К презентации</a>
         <button onClick={() => window.print()}>Печать / PDF</button>
       </nav>
       <p className="eyebrow">Executive summary</p>
-      <h1>Исследование клиентского опыта</h1>
+      <h1>4 кота — Бизнес-разведка</h1>
       <p>Burger King и «Молочай» · Новосибирск</p>
       <Fields fields={summary} />
       <h2>Три ключевых вывода</h2>
@@ -618,7 +503,7 @@ export function Notes({
   return (
     <main className="summary-page notes-page">
       <nav className="paper-actions">
-        <a href="./">← К презентации</a>
+        <a href={location.pathname}>← К презентации</a>
         <strong>{timecode(elapsed)} / 07:00</strong>
       </nav>
       <p className="eyebrow">
@@ -630,6 +515,8 @@ export function Notes({
         {chapter.seconds} с
       </p>
       <p>{chapter.notes || '[Добавить заметки к разделу]'}</p>
+      <h2>Текст защиты</h2>
+      <p>{chapter.speech}</p>
       <h2>Текущая реплика</h2>
       <p>{chapter.lines[page]?.text || '—'}</p>
       <h2>Следующий раздел</h2>

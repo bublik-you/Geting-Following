@@ -490,3 +490,86 @@ dialog::backdrop {background:#071a18b8;backdrop-filter:blur(3px)}
 .floor-furniture i:nth-child(2) {height:14px;width:27%;background:repeating-linear-gradient(90deg,#b5845c 0 14px,#876847 14px 16px);border-color:#d4ac81}
 .interior-tea .floor-furniture i:nth-child(2) {background:repeating-linear-gradient(90deg,#708a52 0 14px,#496337 14px 16px);border-color:#b8c98b}
 .floor-furniture i:nth-child(3) {height:11px;width:7%}
+
+.member small {display:block;color:#c7ddbf;font-size:.75em;font-weight:400;margin-top:.2em}
+.team-tool {margin:0 0 12px;min-height:32px;color:#e2dca4}
+.team-tool button,.solution-preview,.rating-controls select {background:#203d33;color:#edf0d6;border:1px solid #829979;border-radius:4px;padding:6px 10px}
+.team-tool button b {display:inline-block;color:#f8c181;font-family:var(--mono);transition:scale .15s}
+.team-tool button:active b {scale:1.25}
+.stopwatch {position:relative;display:inline-block;width:29px;height:29px;border:3px solid #cabf91;border-radius:50%}
+.stopwatch::before {content:"";position:absolute;left:9px;top:-7px;width:6px;height:4px;background:#cabf91}
+.stopwatch i {position:absolute;left:11px;top:3px;height:9px;width:2px;background:#f8c181;transform-origin:center bottom;animation:hand 5s steps(12) infinite}
+@keyframes hand {to {transform:rotate(360deg)}}
+.pixel-notebook {display:inline-block;padding:6px 10px 6px 14px;background:#e8dbad;color:#283b32;box-shadow:-4px 0 #74875f;animation:preview-in .3s}
+.flow-demo {position:relative;display:flex;justify-content:space-between;width:105px;padding:8px 5px}
+.flow-demo::before {content:"";position:absolute;left:10px;right:10px;top:13px;border-top:2px dashed #b6d39a;animation:preview-in 1.1s both}
+.flow-demo i {z-index:1;width:10px;height:10px;background:#c5da94;box-shadow:2px 2px #567448}
+.job-stage {position:relative;overflow:hidden;display:flex;align-items:flex-end;min-height:112px;padding:10px;background:repeating-linear-gradient(0deg,#375745 0 2px,#41624e 2px 15px)}
+.job-stage.interior-burger {background:repeating-linear-gradient(0deg,#5a4334 0 2px,#70513a 2px 15px)}
+.job-stage .avatar {position:absolute;width:52px;right:25%;bottom:12px;animation:job-walk .85s steps(10) both}
+.job-stage b {z-index:1;background:#18362b;padding:3px 6px}
+.job-prop {width:35px;height:35px;position:absolute;right:12%;bottom:26px;border:4px solid #eed8ae;background:#b58351;box-shadow:4px 4px #23372f}
+.prop-clock {border-radius:50%;background:linear-gradient(90deg,transparent 43%,#584b3e 43% 56%,transparent 56%) #e3d3ab}
+.prop-burger {height:23px;background:linear-gradient(#e8a55b 30%,#71924f 30% 50%,#7c3e32 50% 70%,#db9549 70%);border-radius:40% 40% 15% 15%;border:0}
+.prop-cup {width:21px;border-top:7px solid #ebddbb;background:#dc9b42}
+.prop-bowl {height:18px;border-radius:0 0 50% 50%;background:#cb8d61}
+.prop-desk {width:53px;height:24px;border:0;border-top:8px solid #c79c62;background:linear-gradient(90deg,#8e6549 18%,transparent 18% 82%,#8e6549 82%)}
+@keyframes job-walk {from {transform:translateX(-65px)}}
+.journey-route {padding-top:48px}
+.journey-route::before {top:29px}
+.journey-route button[data-critical=true] i {color:#ffca83}
+.journey-customer {position:absolute;top:0;translate:-50% 0;transition:left .48s ease;pointer-events:none}
+.journey-customer .avatar,.observation-narrator .avatar {width:32px}
+.observation-plan {height:150px}
+.observation-plan button {border-radius:4px;padding:.15rem .5rem}
+.observation-narrator {position:absolute;transition:left .45s ease,top .45s ease;z-index:1;pointer-events:none}
+.dialogue-lines {list-style:none;padding:0;display:grid;gap:5px}
+.dialogue-lines li {padding:6px 9px;background:#335445;border-radius:5px 5px 5px 0;animation:preview-in .25s both}
+.dialogue-lines li:nth-child(even) {background:#4b523b;margin-left:1rem}
+.order-chart {display:grid;gap:5px}
+.order-chart button {display:grid;grid-template-columns:6em 1fr 3.8em;gap:8px;align-items:center;text-align:left;padding:6px;background:#264337;color:inherit;border:1px solid #6c886a;border-radius:4px}
+.order-chart button[aria-pressed=true] {border-color:#efc486;background:#415645}
+.order-track {height:8px;background:#172e27;position:relative}
+.order-track i {position:absolute;left:0;height:100%;background:var(--scene,#bbd994)}
+.order-chart button[aria-pressed=true] .order-track i::after {content:"";width:9px;height:12px;position:absolute;top:-2px;right:-3px;background:#f7df9d;animation:order-trip 1.2s steps(12) both}
+@keyframes order-trip {from {left:0} to {left:calc(100% - 4px)}}
+.event-rail {position:relative;height:14px;margin:12px 6px;border-top:2px solid #91ad83}
+.event-rail i {position:absolute;top:-5px;width:8px;height:8px;background:#a2c59b;translate:-50% 0}
+.event-rail i.active {background:#ffd18f;z-index:1;scale:1.4}
+.event-selectors {display:flex;flex-wrap:wrap}
+.order-stages {display:flex;flex-wrap:wrap;gap:.7em;padding:0;list-style:none}
+.order-stages li {background:#2c4c3e;padding:4px 7px;border-bottom:2px solid #a5b992}
+.solution-preview {display:flex;align-items:center;gap:8px;width:100%;text-align:left;margin:.5em 0}
+.solution-preview span {font-size:26px;color:#f1bc85}
+.solution-preview[aria-pressed=true] span {color:#c7df9d}
+.solution-preview small {margin-left:auto}
+.rating-controls {display:flex;gap:12px;margin:8px 0}
+.rating-controls select {margin-left:5px}
+.action-lane {margin:6px 0 12px}
+.action-lane .timeline-slots {display:grid;grid-template-columns:1fr 1fr 2fr;gap:4px;margin-top:5px}
+.action-lane button {text-align:left;min-width:0}
+.action-lane button[aria-pressed=true] {background:#4a6548;border-color:#e4c58b}
+.action-lane button small {display:block;color:#d9d7b6}
+.timeline .fields {grid-template-columns:1fr 1fr}
+.journal table {width:100%;border-collapse:collapse;text-align:left}
+.journal td,.journal th {padding:5px 8px;border-bottom:1px solid #64836e;vertical-align:top}
+.journal td:first-child {font-variant-numeric:tabular-nums;white-space:nowrap}
+.offline-ready {font-size:12px;color:#d1e6b2}
+@media (max-width:650px) {
+  .journey-route::before {display:none}
+  .timeline .fields {grid-template-columns:1fr}
+  .order-chart button {grid-template-columns:5.5em 1fr 3.3em;padding:5px}
+  .offline-ready {position:absolute;right:8px;bottom:-21px;z-index:3;background:#18392e;padding:2px 5px;font-size:10px}
+}
+@media print {
+  @page {size:A4;margin:15mm}
+  .summary-page {font-size:11pt}
+  .summary-page .fields {grid-template-columns:1fr}
+  .summary-page .fields>div {padding:5px 0}
+  .summary-page h1 {font-size:26pt}
+  .summary-page h2 {font-size:17pt}
+}
+@media (prefers-reduced-motion:reduce) {
+  .journey-customer,.observation-narrator {transition:none}
+  .stopwatch i,.job-stage .avatar,.order-chart button .order-track i::after {animation:none}
+}

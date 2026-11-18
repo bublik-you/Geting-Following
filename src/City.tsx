@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointer } from 'react';
-import { localFile, venues } from './data/content';
+import { localFile, team, venues } from './data/content';
 import type { Venue } from './data/content';
 import { home, paintCity, paintAvatar, pickCity, points, wide } from './world';
 import type { View } from './world';
@@ -10,7 +10,7 @@ export function Avatar({
   action = 'idle',
 }: {
   id: number;
-  action?: 'idle' | 'talk' | 'wave';
+  action?: 'idle' | 'talk' | 'wave' | 'walk';
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -63,7 +63,7 @@ export function Photo({
     <div className={`photo photo-empty ${tone ?? ''} ${className}`}>
       <span aria-hidden="true">▧</span>
       <b>{name}</b>
-      <small>[Добавить фото]</small>
+      <small>Иллюстрация появится после согласования</small>
     </div>
   );
 }
@@ -112,7 +112,7 @@ const markers: Marker[] = [
   ...points.team.map((at, id): Marker => ({
     id: `team-${id}`,
     at,
-    label: `Участник ${id + 1}`,
+    label: team[id].name,
     short: `0${id + 1}`,
     kind: 'team',
   })),
@@ -123,9 +123,9 @@ interface CityProps {
   duration: number;
   disabled: boolean;
   showUI: boolean;
-  onVenue: (venue: Venue) => void;
-  onPerson: (id: number) => void;
-  onCampus: () => void;
+  onVenue: (venue: Venue, view: View) => void;
+  onPerson: (id: number, view: View) => void;
+  onCampus: (view: View) => void;
 }
 export function City({
   target,
@@ -397,7 +397,7 @@ export function City({
       if (picked === 'burger' || picked === 'tea') previewOn(picked);
       else if (picked?.startsWith('team-')) {
         reset();
-        onPerson(Number(picked.at(-1)));
+        onPerson(Number(picked.at(-1)), shot.current.current);
       } else reset();
     }
   }
@@ -419,10 +419,10 @@ export function City({
     if (marker.kind === 'venue') previewOn(marker.id as Venue);
     else if (marker.kind === 'team') {
       reset();
-      onPerson(Number(marker.id.at(-1)));
+      onPerson(Number(marker.id.at(-1)), shot.current.current);
     } else if (marker.id === 'campus') {
       reset();
-      onCampus();
+      onCampus(shot.current.current);
     } else {
       setPreview(null);
       setShowCampus((s) => !s);
@@ -527,7 +527,7 @@ export function City({
                 onClick={() => {
                   if (performance.now() >= suppress.current) {
                     reset();
-                    onVenue(marker.id as Venue);
+                    onVenue(marker.id as Venue, shot.current.current);
                   }
                 }}
               >

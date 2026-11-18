@@ -34,6 +34,15 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Test production website and all scenes
         run: npm test
+      - name: Package standalone HTML and print summary
+        run: npm run package:offline
+      - name: Upload offline presentation and A4 summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: four-cats-offline
+          path: |
+            offline/four-cats-offline.zip
+            offline/executive-summary.pdf
       - name: Upload GitHub Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3

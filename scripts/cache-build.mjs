@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, readdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 async function list(directory, prefix = '') {
@@ -13,6 +13,7 @@ async function list(directory, prefix = '') {
   return results;
 }
 
+await copyFile('SOURCES.md', 'dist/media/extra/SOURCES.md');
 const files = (await list('dist')).sort();
 const template = await readFile('scripts/worker.js', 'utf8');
 const digest = createHash('sha256').update(template);

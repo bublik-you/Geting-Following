@@ -1,3 +1,4 @@
+import { narrator, team } from './data/content';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -137,13 +138,13 @@ function Speech({
     <aside className="speech">
       <div className="speaker">
         <Avatar
-          id={0}
+          id={narrator}
           action={count > 0 && count < chars.length ? 'talk' : 'idle'}
         />
       </div>
       <div className="bubble">
         <div className="speech-copy">
-          <small>Рассказчик</small>
+          <small>{team[narrator].name} · рассказчик</small>
           <p aria-hidden="true">
             {chars.slice(0, Math.min(count, chars.length)).join('')}
             {count < chars.length && <i className="caret" />}
@@ -203,12 +204,13 @@ function SpeakerWindow() {
 
 function App() {
   const [index, setIndex] = useState(0);
-  const [member, setMember] = useState(0);
+  const [member, setMember] = useState(narrator);
   const [venue, setVenue] = useState<Venue>('burger');
   const [page, setPage] = useState(0);
   const [started, setStarted] = useState<number | null>(null);
   const elapsed = useElapsed(started);
   const [muted, setMuted] = useState(false);
+  const [cached, setCached] = useState(Boolean(window.presentationMedia));
   const [hidden, setHidden] = useState(false);
   const [menu, setMenu] = useState<'chapters' | 'appendix' | null>(null);
   const [instant, setInstant] = useState(false);
@@ -225,6 +227,7 @@ function App() {
   const pending = useRef<number[]>([]);
   const intro = useRef<number[]>([]);
   const busy = useRef(false);
+  const mapReturn = useRef(home);
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clear = (timers: number[]) =>
     timers.forEach((timer) => window.clearTimeout(timer));
@@ -265,6 +268,15 @@ function App() {
     return () => document.removeEventListener('fullscreenchange', changed);
   }, []);
 
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || window.presentationMedia) return;
+    const workers = navigator.serviceWorker;
+    const update = () => setCached(Boolean(workers.controller));
+    update();
+    workers.addEventListener('controllerchange', update);
+    return () => workers.removeEventListener('controllerchange', update);
+  }, []);
+
   function skipIntro() {
     if (!cityIntro) return;
     clear(intro.current);
@@ -273,7 +285,7 @@ function App() {
   }
   function navigate(
     to: number,
-    options: { skip?: boolean; person?: number } = {},
+    options: { skip?: boolean; person?: number; fromMap?: View } = {},
   ) {
     const returningToCity = to === 0;
     // A revealed chapter is interactive while its entrance fade is still running.
@@ -293,14 +305,15 @@ function App() {
     setCityIntro(false);
     setMenu(null);
     void audio.unlock();
+    if (index === 0) mapReturn.current = cityIntro ? home : options.fromMap ?? home;
     const location = to === 2 ? 'burger' : to === 3 ? 'tea' : venue;
     const person = options.person ?? member;
     const noMotion = options.skip || reduce();
     const shot =
       to === 0
-        ? home
+        ? mapReturn.current
         : to === 12
-          ? wide
+          ? focus(points.campus, 1.32)
           : focus(
               to === 1 ? points.team[person] : points[location],
               to <= 3 ? 1.65 : 1.22,
@@ -314,7 +327,7 @@ function App() {
     }
     if (noMotion) {
       busy.current = false;
-      setCamera({ view: shot, ms: 0 });
+      setCamera({ view: to === 12 ? wide : shot, ms: 0 });
       reveal();
       setTransition('idle');
       return;
@@ -330,7 +343,7 @@ function App() {
         () => {
           reveal();
           setTransition('in');
-          if (returningToCity) setCamera({ view: home, ms: cameraTravelMs });
+          if (returningToCity) setCamera({ view: shot, ms: cameraTravelMs });
           if (to === 12)
             setCamera({ view: { x: -48, y: -17, zoom: 0.68 }, ms: 2400 });
           audio.land();
@@ -409,11 +422,12 @@ function App() {
             <i />
           </span>
           <span>
-            <b>Полевое исследование</b>
-            <small>КЛИЕНТСКИЙ ОПЫТ</small>
+            <b>4 КОТА</b>
+            <small>БИЗНЕС-РАЗВЕДКА</small>
           </span>
         </button>
         <div className="top-actions">
+          {cached && <span className="offline-ready" role="status">Готово офлайн</span>}
           <button
             className="mode-label"
             onClick={() => setMenu('chapters')}
@@ -463,9 +477,9 @@ function App() {
           duration={camera.ms}
           disabled={!isMap || transition !== 'idle'}
           showUI={isMap || index === 12}
-          onVenue={(v) => navigate(v === 'burger' ? 2 : 3)}
-          onPerson={(person) => navigate(1, { person })}
-          onCampus={() => navigate(1)}
+          onVenue={(v, fromMap) => navigate(v === 'burger' ? 2 : 3, { fromMap })}
+          onPerson={(person, fromMap) => navigate(1, { person, fromMap })}
+          onCampus={(fromMap) => navigate(1, { fromMap })}
         />
         {isMap && (
           <div className="map-hud">
@@ -474,11 +488,11 @@ function App() {
                 <i /> Новосибирск · м. Студенческая
               </p>
               <h1>
-                Исследование
+                4 кота
                 <br />
-                клиентского опыта<span aria-hidden="true">.</span>
+                Бизнес-разведка<span aria-hidden="true">.</span>
               </h1>
-              <p className="subtitle">Burger King и «Молочай»</p>
+              <p className="subtitle">Клиентский опыт Burger King и «Молочая»</p>
             </div>
             <div className="map-guide">
               <span>
@@ -659,7 +673,7 @@ function App() {
 }
 
 const mode = new URLSearchParams(location.search).get('mode');
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+if (import.meta.env.PROD && location.protocol !== 'file:' && !window.presentationMedia && 'serviceWorker' in navigator) {
   window.addEventListener(
     'load',
     () =>

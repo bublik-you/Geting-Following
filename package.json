@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build && node scripts/cache-build.mjs",
+    "build": "tsc -b && vite build && node scripts/cache-build.mjs && node scripts/standalone.mjs",
+    "package:offline": "node scripts/package-offline.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "test": "playwright test"
   },
