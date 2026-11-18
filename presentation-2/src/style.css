@@ -1,0 +1,37 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  box-sizing: border-box;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: 1.25rem;
+}
+
+#offline-status {
+  font-size: 0.875rem;
+}
+
+nav:not([hidden]) {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-block-start: 1rem;
+}
+
+button {
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-motion {
+    animation: none;
+    transition: none;
+  }
+}
