@@ -18,11 +18,11 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
+      await self.clients.claim();
       for (const name of await caches.keys()) {
         if (name.startsWith(prefix) && name !== cacheName)
           await caches.delete(name);
       }
-      await self.clients.claim();
     })(),
   );
 });
@@ -63,8 +63,7 @@ self.addEventListener('fetch', (event) => {
   if (!assets.has(key)) return;
   event.respondWith(
     (async () => {
-      const cache = await caches.open(cacheName);
-      const response = await cache.match(key);
+      const response = await caches.match(key, { cacheName });
       if (!response) return fetch(request);
       return rangeResponse(request, response);
     })(),
