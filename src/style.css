@@ -545,6 +545,7 @@ dialog::backdrop {background:#071a18b8;backdrop-filter:blur(3px)}
 .solution-preview small {margin-left:auto}
 .rating-controls {display:flex;gap:12px;margin:8px 0}
 .rating-controls select {margin-left:5px}
+.timeline .time-labels {display:grid;grid-template-columns:1fr 1fr 2fr auto}
 .action-lane {margin:6px 0 12px}
 .action-lane .timeline-slots {display:grid;grid-template-columns:1fr 1fr 2fr;gap:4px;margin-top:5px}
 .action-lane button {text-align:left;min-width:0}
@@ -559,10 +560,9 @@ dialog::backdrop {background:#071a18b8;backdrop-filter:blur(3px)}
   .journey-route::before {display:none}
   .timeline .fields {grid-template-columns:1fr}
   .order-chart button {grid-template-columns:5.5em 1fr 3.3em;padding:5px}
-  .offline-ready {position:absolute;right:8px;bottom:-21px;z-index:3;background:#18392e;padding:2px 5px;font-size:10px}
+  .offline-ready {position:absolute;right:8px;top:53px;z-index:3;background:#18392e;padding:2px 5px;font-size:10px}
 }
 @media print {
-  @page {size:A4;margin:15mm}
   .summary-page {font-size:11pt}
   .summary-page .fields {grid-template-columns:1fr}
   .summary-page .fields>div {padding:5px 0}

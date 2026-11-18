@@ -113,6 +113,7 @@ function Speech({
       if (reduce) {
         token.current = length;
         setCount(length);
+        if (!src) audio.syllable(0);
         return;
       }
       interval = window.setInterval(() => {

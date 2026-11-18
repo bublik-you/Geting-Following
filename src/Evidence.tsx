@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { venues } from './data/content';
 import type { Venue } from './data/content';
 import {
-  conversion, estimates, formatMean, minuteOfDay, pairedOrders, sessions, upsell, waitMinutes,
+  conversion, estimates, formatMean, meanWait, minuteOfDay, pairedOrders, sessions, upsell, waitMinutes,
 } from './data/fieldwork';
 
 const venueIds = ['tea', 'burger'] as const;
@@ -100,7 +100,7 @@ export function Metrics({ venue }: { venue: Venue }) {
             {venueIds.map((id) => (
               <div className="measure" key={id}>
                 <div><b>{venues[id].name}</b><span>{formatMean(id)} мин · n = {pairedOrders[id].length}</span></div>
-                <div className="track" aria-hidden="true"><i style={{ width: `${100 * Number(formatMean(id).replace(',', '.')) / max}%`, background: venues[id].color }} /></div>
+                <div className="track" aria-hidden="true"><i style={{ width: `${100 * meanWait(id) / max}%`, background: venues[id].color }} /></div>
               </div>
             ))}
           </div>

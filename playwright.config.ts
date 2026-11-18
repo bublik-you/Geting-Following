@@ -21,7 +21,7 @@ export default defineConfig({
     headless: true,
     launchOptions: {
       executablePath: process.env.CHROMIUM_PATH || (process.env.CI ? undefined : '/usr/bin/chromium'),
-      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      args: ['--no-sandbox', '--disable-dev-shm-usage', ...(!publishedURL ? ['--ignore-certificate-errors'] : [])],
     },
     viewport: { width: 1440, height: 900 },
   },

@@ -102,8 +102,8 @@ test('research interactions use the field data', async ({ page }) => {
   await expect(page.locator('.observation-detail')).toContainText('ошибка расшифровки');
   await jump(page, 'Рекомендации');
   await expect(page.locator('.matrix-grid button')).toHaveCount(0);
-  await page.getByLabel('Эффект', { exact: true }).selectOption('4');
-  await page.getByLabel('Сложность', { exact: true }).selectOption('2');
+  await page.getByRole('combobox', { name: 'Эффект', exact: true }).selectOption('4');
+  await page.getByRole('combobox', { name: 'Сложность', exact: true }).selectOption('2');
   await expect(page.locator('.matrix-grid button')).toHaveCount(1);
   await page.getByRole('button', { name: /Показать прототип/ }).click();
   await expect(page.locator('.solution-preview')).toContainText('сезонное');
@@ -201,9 +201,8 @@ test('seven-minute manual defense, synced notes, print view and offline reload',
   await expect(page.getByLabel('Таймер защиты')).toBeVisible();
   await page.getByRole('button', { name: 'Приложения' }).click();
   await page.getByText('Обезличенные цитаты').click();
-  await expect(page.getByText(/Полные фрагменты и пересказ комбо/)).toBeVisible();
+  await expect(page.getByText(/Реплики и пересказ комбо из полевых записей/)).toBeVisible();
   await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
-  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await expect
     .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller))
     .toBe(true);
@@ -240,9 +239,9 @@ async function exerciseOffline(page: Page) {
   for (const name of names) {
     await page.locator('.city').getByRole('button', { name, exact: true }).click();
     await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-audio-started', 'yes');
     await page.getByRole('button', { name: 'Назад в город' }).click();
   }
-  await expect(page.locator('html')).toHaveAttribute('data-audio-started', 'yes');
   for (const name of ['Burger King', 'Молочай']) {
     await page.locator('.city').getByRole('button', { name, exact: true }).hover();
     await page.getByRole('button', { name: `Открыть исследование ${name}` }).click();
@@ -286,7 +285,7 @@ async function exerciseOffline(page: Page) {
 
   await page.getByRole('button', { name: 'Начать защиту' }).click();
   await page.keyboard.press('ArrowRight');
-  const notesReady = page.waitForEvent('popup');
+  const notesReady = page.context().waitForEvent('page');
   await page.getByRole('link', { name: 'Заметки', exact: true }).click();
   const notes = await notesReady;
   await expect(notes.getByRole('heading', { name: 'Текст защиты' })).toBeVisible();

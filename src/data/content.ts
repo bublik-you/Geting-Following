@@ -203,7 +203,6 @@ export const media: Record<MediaCategory, Media[]> = {
 };
 export const appendix = [
   { title: 'Чек-лист повторного наблюдения', file: '', text: 'Записывать анонимный код визита, вход, канал заказа, оформление, оплату, выдачу, предложение доптовара и принятие. Отмечать тип заказа, загрузку и пропущенные этапы.' },
-  { title: 'Обезличенные цитаты', file: '', text: 'Полные фрагменты и пересказ комбо доступны в сцене «Наблюдения». Фрагмент о латте и напитке «Весеннее обострение» пока не привязан к заведению.' },
   additionalJournal,
   { title: 'Источники и сметы', file: 'extra/SOURCES.md', text: 'Источники по адресам и услугам, происхождение полевых сведений и ограничения. Состав рабочих смет доступен в сцене «Рекомендации».' },
 ];
@@ -212,5 +211,6 @@ export function localFile(file: string) {
   const path = file.trim();
   if (!path || /(^\/|[:\\?#]|(?:^|\/)\.\.(?:\/|$))/.test(path)) return '';
   const encoded = path.split('/').map(encodeURIComponent).join('/');
-  return window.presentationMedia?.[encoded] ?? import.meta.env.BASE_URL + 'media/' + encoded;
+  if (window.presentationMedia) return window.presentationMedia[encoded] ?? '';
+  return import.meta.env.BASE_URL + 'media/' + encoded;
 }

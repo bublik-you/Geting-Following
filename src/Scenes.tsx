@@ -434,6 +434,18 @@ export function Appendix() {
       <div className="appendix-list">
         <details><summary>Полевые записи</summary><RawJournal /></details>
         <details><summary>Таблицы замеров и расчёт</summary><WaitTable /></details>
+        <details>
+          <summary>Обезличенные цитаты</summary>
+          <p>Реплики и пересказ комбо из полевых записей. Фрагмент о латте и напитке «Весеннее обострение» пока не привязан к заведению.</p>
+          {(['tea', 'burger'] as const).flatMap((id) => research[id].observations.filter(({ lines }) => lines.length).map((item) => (
+            <details key={id + item.title}>
+              <summary>{venues[id].name} · {item.title}</summary>
+              <p>{item.kind}</p>
+              <ul className="dialogue-lines">{item.lines.map((line) => <li key={line}>{line}</li>)}</ul>
+              <p>{item.note}</p>
+            </details>
+          )))}
+        </details>
         <details><summary>Дополнительный график и оценки</summary><Metrics venue="tea" /></details>
         {appendix.map((entry) => (
           <details key={entry.title}>
