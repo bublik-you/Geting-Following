@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150" role="img" aria-label="Пиксельные стаканы чая с цитрусом" shape-rendering="crispEdges">
+ <path fill="#233b33" d="M0 0h240v150H0z"/>
+ <path fill="#3e5840" d="M22 16h40v72H22zm161 2h29v67h-29z"/><path fill="#6b7750" d="M28 23h28v4H28zm0 12h18v4H28zm161-8h17v4h-17zm0 11h10v4h-10z"/>
+ <path fill="#6e5537" d="M0 110h240v40H0z"/><path fill="#9b7547" d="M0 118h240v3H0zm0 18h240v3H0z"/>
+ <path fill="#382d25" d="M54 126h138v10H54z"/>
+ <path fill="#9f582d" d="M56 53h63v11h-5v50h-6v11H68v-11h-7V64h-5z"/>
+ <path fill="#e78c3e" d="M64 64h46v48h-6v7H73v-7h-6z"/><path fill="#ffd07a" d="M68 69h5v34h-5zm9-19h11v7H77z"/>
+ <path fill="#dedad0" d="M53 51h69v10H53z"/><path fill="#e57d37" d="M97 40h5v16h-5z"/>
+ <path fill="#a5943a" d="M127 43h62v12h-5v57h-5v14h-42v-14h-6V55h-4z"/>
+ <path fill="#eac450" d="M135 55h45v54h-5v12h-34v-12h-5z"/>
+ <path fill="#29423a" d="M126 39h64v14h-64zm9-6h47v6h-47z"/>
+ <path fill="#af6045" d="M156 27h8v7h-8z"/><path fill="#f4dc83" d="M150 65h15v5h5v15h-5v5h-15v-5h-5V70h5z"/>
+ <path fill="#708648" d="M150 65h15v3h-15zm-5 5h3v15h-3zm22 0h3v15h-3zm-17 17h15v3h-15z"/>
+ <path fill="#ceb14d" d="M36 116h20v4h5v12H31v-12h5zm156-3h17v4h6v12h-28v-12h5z"/>
+ <path fill="#eadd76" d="M38 120h14v6H38zm155-4h12v6h-12z"/>
+</svg>

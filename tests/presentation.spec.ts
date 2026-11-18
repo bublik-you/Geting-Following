@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 async function jump(page: Page, label: string) {
   await page.getByRole('button', { name: 'Разделы', exact: true }).click();
@@ -17,7 +19,7 @@ async function expectCityRestored(page: Page) {
     city.getByRole('button', { name: 'Молочай', exact: true }),
   ).toBeInViewport();
   await expect(
-    city.getByRole('button', { name: /^Участник [1-4]$/ }),
+    city.locator('.pin.team button'),
   ).toHaveCount(4);
 }
 
@@ -27,14 +29,14 @@ test('city, team and two venue entrances', async ({ page }) => {
   await page.clock.install();
   await page.goto('./');
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'клиентского опыта',
+    'Бизнес-разведка',
   );
   await expect(page.locator('.pin.team button')).toHaveCount(4);
   const king = page.getByRole('button', { name: 'Burger King', exact: true });
   await king.hover();
   await expect(
     page.getByRole('button', { name: 'Открыть исследование Burger King' }),
-  ).toContainText('[Добавить фото]');
+  ).toBeVisible();
   await page
     .getByRole('button', { name: 'Открыть исследование Burger King' })
     .click();
@@ -42,22 +44,22 @@ test('city, team and two venue entrances', async ({ page }) => {
   await expect(page.locator('.speech-copy p')).toContainText('Burger King');
   await page.getByRole('button', { name: 'Следующая реплика' }).click();
   await expect(page.locator('.speech-copy p')).toContainText(
-    'Добавить цель и задачи',
+    'Отдельно измерим оформление',
   );
   await page.getByRole('button', { name: 'Назад в город' }).click();
   await expectCityRestored(page);
 
   // Keep the team scene in its fade-in phase so the immediate return is reproducible.
   await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 500);
-  await page.getByRole('button', { name: 'Участник 4', exact: true }).click();
+  await page.getByRole('button', { name: 'Максим Середкин', exact: true }).click();
   await page.clock.runFor(700);
   await expect(page.locator('.curtain')).toHaveClass('curtain in');
   await expect(
-    page.getByRole('heading', { name: '[Имя участника 4]' }),
+    page.getByRole('heading', { name: 'Максим Середкин' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Участник 1', exact: true }).click();
+  await page.getByRole('button', { name: 'Анжелина Дитятьева', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: '[Имя участника 1]' }),
+    page.getByRole('heading', { name: 'Анжелина Дитятьева' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Назад в город' }).click();
   await expect(page.locator('.curtain')).toHaveClass('curtain out-short');
@@ -71,63 +73,48 @@ test('city, team and two venue entrances', async ({ page }) => {
     .getByRole('button', { name: 'Открыть исследование Молочай' })
     .click();
   await expect(page.locator('.chapter-3')).toContainText(
-    'ТЦ «Амстердам», этаж −1',
+    'ТЦ «Амстердам», нижний уровень',
   );
   await page.getByRole('button', { name: 'Назад в город' }).click();
   await expectCityRestored(page);
   expect(errors).toEqual([]);
 });
 
-test('all thirteen sections and venue-scoped interactive templates', async ({
-  page,
-}) => {
+test('research interactions use the field data', async ({ page }) => {
   await page.goto('./');
   await jump(page, 'Метод');
-  await page.getByRole('button', { name: /Измеряемые метрики/ }).click();
-  await expect(page.locator('.note p')).toHaveText('[Добавить данные]');
-  const teaTab = page
-    .getByRole('group', { name: 'Заведение' })
+  await page.getByRole('button', { name: /Два интервала/ }).click();
+  await expect(page.locator('.note p')).toContainText('сопоставленным парам');
+  const teaTab = page.getByRole('group', { name: 'Заведение' })
     .getByRole('button', { name: 'Молочай', exact: true });
   await teaTab.click();
   await expect(teaTab).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.note p')).toHaveCount(0);
   await jump(page, 'Портрет');
-  await page.getByRole('button', { name: 'Job story 4' }).click();
-  await expect(page.locator('.detail')).toContainText('Job story 4');
+  await page.getByRole('button', { name: 'Место для работы' }).click();
+  await expect(page.locator('.detail')).toContainText('поработать вне дома');
   await jump(page, 'Путь клиента');
   await page.getByRole('button', { name: 'Получение' }).click();
-  await expect(page.getByRole('heading', { name: /Получение/ })).toBeVisible();
-  await jump(page, 'Метрики');
-  await page.getByRole('button', { name: 'Сравнить заведения' }).click();
-  await page
-    .getByRole('button', { name: 'Время обслуживания', exact: true })
-    .click();
-  await expect(page.getByText('Данные ожидаются')).toHaveCount(2);
-  await expect(page.locator('.track i').first()).toHaveCSS('width', '0px');
+  await expect(page.getByRole('heading', { name: /Получение.*Момент истины/ })).toBeVisible();
   await jump(page, 'Наблюдения');
-  await page.getByRole('button', { name: '[Наблюдение 4]' }).click();
-  await expect(page.locator('.observation-detail')).toContainText(
-    'Наблюдение 4',
-  );
+  await page.getByRole('button', { name: '«Красный лис» на схеме' }).click();
+  await expect(page.locator('.dialogue-lines')).toContainText('Лис 54');
+  await expect(page.locator('.observation-detail')).toContainText('ошибка расшифровки');
   await jump(page, 'Рекомендации');
   await expect(page.locator('.matrix-grid button')).toHaveCount(0);
-  await page.getByRole('button', { name: '[Рекомендация 6]' }).click();
-  await expect(
-    page.getByRole('heading', { name: '[Рекомендация 6]' }),
-  ).toBeVisible();
+  await page.getByRole('combobox', { name: 'Эффект', exact: true }).selectOption('4');
+  await page.getByRole('combobox', { name: 'Сложность', exact: true }).selectOption('2');
+  await expect(page.locator('.matrix-grid button')).toHaveCount(1);
+  await page.getByRole('button', { name: /Показать прототип/ }).click();
+  await expect(page.locator('.solution-preview')).toContainText('сезонное');
   await jump(page, '48 часов');
-  await expect(
-    page.getByRole('button', { name: '[Мероприятие 3]' }),
-  ).toBeVisible();
+  await page.getByRole('button', { name: /Контрольные замеры/ }).click();
+  await expect(page.locator('.timeline .detail')).toContainText('Таймкипер');
   await jump(page, 'Риски');
-  await page
-    .getByRole('button', { name: 'Непроверенные предположения' })
-    .click();
-  await expect(page.locator('.detail')).toContainText(
-    'Непроверенные предположения',
-  );
+  await page.getByRole('button', { name: 'Скорость терминалов' }).click();
+  await expect(page.locator('.detail')).toContainText('контрольные замеры');
   await jump(page, 'Итоги');
-  await expect(page.locator('.conclusions')).toContainText('Вывод 3');
+  await expect(page.locator('.conclusions')).toContainText('Проверить два решения');
   await expect(page.getByText('Спасибо за внимание!')).toBeVisible();
   await expect(page.locator('.segments button')).toHaveCount(13);
 });
@@ -140,6 +127,7 @@ test('touch: pinch does not open a marker, tap opens and dismisses preview', asy
     viewport: { width: 900, height: 600 },
     hasTouch: true,
     isMobile: true,
+    ignoreHTTPSErrors: !process.env.PLAYWRIGHT_BASE_URL,
     reducedMotion: 'reduce',
   });
   const page = await context.newPage();
@@ -213,20 +201,15 @@ test('seven-minute manual defense, synced notes, print view and offline reload',
   await expect(page.getByLabel('Таймер защиты')).toBeVisible();
   await page.getByRole('button', { name: 'Приложения' }).click();
   await page.getByText('Обезличенные цитаты').click();
-  await expect(
-    page
-      .getByText('[Добавить материал]', { exact: true })
-      .filter({ visible: true }),
-  ).toBeVisible();
+  await expect(page.getByText(/Реплики и пересказ комбо из полевых записей/)).toBeVisible();
   await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
-  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await expect
     .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller))
     .toBe(true);
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'клиентского опыта',
+    'Бизнес-разведка',
   );
   await page.goto('?mode=summary');
   await expect(
@@ -236,4 +219,121 @@ test('seven-minute manual defense, synced notes, print view and offline reload',
     page.getByRole('heading', { name: 'Три ключевых вывода' }),
   ).toBeVisible();
   await context.setOffline(false);
+});
+
+
+async function observeAudio(context: BrowserContext) {
+  await context.addInitScript(() => {
+    const original = OscillatorNode.prototype.start;
+    OscillatorNode.prototype.start = function (...args) {
+      if (this.context.state === 'running')
+        document.documentElement.dataset.audioStarted = 'yes';
+      return original.apply(this, args);
+    };
+  });
+}
+
+async function exerciseOffline(page: Page) {
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Бизнес-разведка');
+  const names = ['Анжелина Дитятьева', 'Алексей Ваганов', 'Алексей Назаров', 'Максим Середкин'];
+  for (const name of names) {
+    await page.locator('.city').getByRole('button', { name, exact: true }).click();
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-audio-started', 'yes');
+    await page.getByRole('button', { name: 'Назад в город' }).click();
+  }
+  for (const name of ['Burger King', 'Молочай']) {
+    await page.locator('.city').getByRole('button', { name, exact: true }).hover();
+    await page.getByRole('button', { name: `Открыть исследование ${name}` }).click();
+    await expect.poll(() => page.locator('.context img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'Назад в город' }).click();
+  }
+  for (let step = 1; step <= 13; step++) {
+    await page.locator('.segments').getByRole('button', { name: new RegExp(`^Раздел ${step}[.]`) }).click();
+    await expect(page.locator(step === 1 ? '.map-title' : `.chapter-${step - 1}`)).toBeVisible();
+  }
+
+  await jump(page, 'Метрики');
+  await expect(page.locator('.mean-chart')).toContainText('4,2 мин · n = 5');
+  await expect(page.locator('.mean-chart')).toContainText('5,7 мин · n = 3');
+  await page.getByRole('button', { name: 'По заказам', exact: true }).click();
+  await page.locator('.order-chart button').last().click();
+  await expect(page.locator('.metric-detail [aria-live]')).toContainText('14:44 → 14:48 · 4 мин');
+  await page.getByRole('button', { name: 'Шкала событий', exact: true }).click();
+  await page.getByRole('button', { name: '18 ноября', exact: true }).click();
+  await page.getByRole('button', { name: /^14:48/ }).click();
+  await expect(page.locator('.metric-detail [aria-live]')).toContainText('заказы №2 и №3');
+  await page.getByRole('button', { name: 'Этапы', exact: true }).click();
+  await expect(page.locator('.order-stages li')).toHaveCount(5);
+  await page.getByRole('button', { name: 'Воронка', exact: true }).click();
+  await expect(page.locator('.metric-detail')).toContainText('Посетитель отказался');
+  await page.getByRole('button', { name: 'Оценки команды', exact: true }).click();
+  await expect(page.locator('.metric-detail')).toContainText('5–7 минут');
+  await page.getByRole('group', { name: 'Заведение' }).getByRole('button', { name: 'Burger King', exact: true }).click();
+  await page.getByRole('button', { name: 'По заказам', exact: true }).click();
+  await expect(page.locator('.order-chart button')).toHaveCount(3);
+
+  await page.getByRole('button', { name: 'Приложения', exact: true }).click();
+  await page.getByText('Полевые записи', { exact: true }).click();
+  await page.getByText('15 ноября · Молочай', { exact: true }).click();
+  await expect(page.getByText(/покупка в записи не зафиксирована/)).toBeVisible();
+  await page.getByText('Источники и сметы', { exact: true }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('link', { name: /Открыть файл/ }).click();
+  expect((await download).suggestedFilename()).toBe('SOURCES.md');
+  await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+
+  await page.getByRole('button', { name: 'Начать защиту' }).click();
+  await page.keyboard.press('ArrowRight');
+  const notesReady = page.context().waitForEvent('page');
+  await page.getByRole('link', { name: 'Заметки', exact: true }).click();
+  const notes = await notesReady;
+  await expect(notes.getByRole('heading', { name: 'Текст защиты' })).toBeVisible();
+  await expect(notes.getByRole('heading', { name: 'Команда', exact: true })).toBeVisible();
+  await notes.close();
+  await expect(page.getByLabel('Таймер защиты')).toContainText('07:00');
+}
+
+test('HTTPS PWA cache reopens offline and runs all scenes', async ({ context, page, baseURL }) => {
+  expect(new URL(baseURL!).protocol).toBe('https:');
+  await observeAudio(context);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('./');
+  await expect(page.getByRole('status')).toHaveText('Готово офлайн');
+  const paths = await page.evaluate(async () => {
+    const keys = await caches.keys();
+    const cache = await caches.open(keys.find((key) => key.startsWith('geting-following:'))!);
+    return (await cache.keys()).map((request) => new URL(request.url).pathname);
+  });
+  expect(paths).toEqual(expect.arrayContaining([
+    expect.stringMatching(/index\.html$/), expect.stringMatching(/manifest\.webmanifest$/),
+    expect.stringMatching(/burger\/illustration\.svg$/), expect.stringMatching(/tea\/illustration\.svg$/),
+    expect.stringMatching(/SOURCES\.md$/),
+  ]));
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByRole('status')).toHaveText('Готово офлайн');
+  await page.close();
+  const reopened = await context.newPage();
+  await reopened.emulateMedia({ reducedMotion: 'reduce' });
+  await reopened.goto(baseURL!);
+  await exerciseOffline(reopened);
+});
+
+test('standalone file runs all scenes without HTTP requests', async ({ page, context }) => {
+  test.skip(Boolean(process.env.PLAYWRIGHT_BASE_URL), 'The standalone file is covered by the build job.');
+  await observeAudio(context);
+  await context.setOffline(true);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const requests: string[] = [];
+  const errors: string[] = [];
+  context.on('request', (request) => { if (/^https?:/.test(request.url())) requests.push(request.url()); });
+  page.on('pageerror', (error) => errors.push(error.message));
+  const html = pathToFileURL(resolve('offline/presentation.html')).href;
+  await page.goto(html);
+  await exerciseOffline(page);
+  await page.goto(html + '?mode=summary');
+  await expect(page.getByRole('heading', { name: 'Три ключевых вывода' })).toBeVisible();
+  expect(requests).toEqual([]);
+  expect(errors).toEqual([]);
 });

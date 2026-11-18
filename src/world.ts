@@ -147,42 +147,15 @@ export function pickCity(at: XY, margin = 0): Hit | null {
 }
 
 const sprites = [
-  {
-    hair: '#493328',
-    shine: '#805639',
-    skin: '#edac77',
-    coat: '#267768',
-    light: '#58b096',
-    pants: '#263a41',
-    hairStyle: 0,
-  },
-  {
-    hair: '#332934',
-    shine: '#784855',
-    skin: '#bd7e56',
-    coat: '#a34b67',
-    light: '#e88eaa',
-    pants: '#352c43',
-    hairStyle: 1,
-  },
-  {
-    hair: '#74462b',
-    shine: '#bb7744',
-    skin: '#f7c397',
-    coat: '#cf8333',
-    light: '#ffd07b',
-    pants: '#473832',
-    hairStyle: 2,
-  },
-  {
-    hair: '#24323c',
-    shine: '#495462',
-    skin: '#a9664c',
-    coat: '#555c9f',
-    light: '#9ba7df',
-    pants: '#30334c',
-    hairStyle: 3,
-  },
+  { hair: '#4c3329', shine: '#895d43', skin: '#e7aa84', coat: '#252a30', light: '#515863', pants: '#25282e' },
+  { hair: '#20242a', shine: '#4c5058', skin: '#d7a275', coat: '#202b43', light: '#354765', pants: '#232835' },
+  { hair: '#2e211f', shine: '#6f5042', skin: '#edb58f', coat: '#5e4035', light: '#916753', pants: '#302523' },
+  { hair: '#392e26', shine: '#6e5241', skin: '#d9a179', coat: '#2e5540', light: '#53765b', pants: '#293931' },
+];
+const visitors = [
+  { hair: '#614232', shine: '#ab7b51', skin: '#ecb980', coat: '#a45c46', light: '#e29d6b', pants: '#39474c' },
+  { hair: '#2d303b', shine: '#576068', skin: '#ad765a', coat: '#4a567a', light: '#8795b0', pants: '#333c4c' },
+  { hair: '#5a3a2e', shine: '#a2734d', skin: '#e5a57c', coat: '#736346', light: '#bf9d62', pants: '#39463b' },
 ];
 export function drawPerson(
   c: CanvasRenderingContext2D,
@@ -191,47 +164,80 @@ export function drawPerson(
   y: number,
   time: number,
   action: 'idle' | 'talk' | 'walk' | 'wave' = 'idle',
+  shadow = true,
 ) {
-  const { hair, shine, skin, coat, light, pants, hairStyle } =
-    sprites[id % sprites.length];
+  const { hair, shine, skin, coat, light, pants } =
+    sprites[id] ?? visitors[(id - sprites.length) % visitors.length];
   const phase = Math.floor(time / (action === 'idle' ? 300 : 135)) + id * 13;
-  const arm =
-    action === 'wave' || action === 'talk'
-      ? (phase % 3) - 1
-      : phase % 7 === 0
-        ? 1
-        : 0;
+  const arm = action === 'wave' ? -2 - phase % 2 : action === 'talk' ? (phase % 3) - 1 : 0;
   const step = action === 'walk' ? (phase % 3) - 1 : 0;
-  const face = phase % 12 > 9 ? -1 : 0;
   const bob = phase % 6 === 0 ? 1 : 0;
-
-  rect(c, '#223f3a66', x - 7, y - 2, 15, 4);
-  rect(c, '#1f2c31', x - 6, y - 17, 12, 13);
-  rect(c, pants, x - 4, y - 7, 3, 6 + step);
-  rect(c, pants, x + 1, y - 7, 3, 6 - step);
-  rect(c, '#182929', x - 5, y - 2 + step, 4, 2);
-  rect(c, '#182929', x + 1, y - 2 - step, 4, 2);
-  rect(c, coat, x - 5, y - 15, 10, 8);
-  rect(c, light, x - 4, y - 14, 4, 2);
-  rect(c, coat, x + 5, y - 14 + arm * 2, 2, 5);
-  rect(c, skin, x + 5, y - 10 + arm * 2, 2, 2);
-  rect(c, skin, x - 7, y - 11 - step, 2, 3);
-  if (hairStyle === 1) rect(c, hair, x - 6, y - 22 + bob, 12, 10);
-  rect(c, hair, x - 5, y - 25 + bob, 10, 9);
-  rect(c, shine, x - 4, y - 24 + bob, 7, 2);
-  rect(c, skin, x - 4 + face, y - 21 + bob, 8, 6);
-  rect(c, hair, x - 5 + face, y - 22 + bob, 3, 3);
-  if (hairStyle === 2) {
-    rect(c, coat, x - 6, y - 25 + bob, 12, 3);
-    rect(c, light, x - 3, y - 26 + bob, 7, 2);
+  if (shadow) rect(c, '#172f3066', x - 7, y - 2, 15, 4);
+  const pixel = (color: string, dx: number, dy: number, w: number, h: number) =>
+    rect(c, color, x + dx, y + dy, w, h);
+  pixel('#182429', -6, -16 + bob, 12, 12);
+  pixel(pants, -4, -7, 3, 5 + step);
+  pixel(pants, 1, -7, 3, 5 - step);
+  pixel('#171e23', -5, -2 + step, 4, 2);
+  pixel('#171e23', 1, -2 - step, 4, 2);
+  pixel(coat, -5, -15 + bob, 10, 8);
+  pixel(light, -4, -14 + bob, 3, 2);
+  pixel(coat, 5, -14 + arm + bob, 2, 5);
+  pixel(skin, 5, -10 + arm + bob, 2, 2);
+  pixel(skin, -7, -11 - step + bob, 2, 3);
+  if (id === 0) {
+    pixel(hair, -6, -24 + bob, 12, 17);
+    pixel(shine, -5, -19 + bob, 1, 11);
+    pixel(shine, 4, -20 + bob, 1, 10);
+    pixel('#c4b298', 0, -14 + bob, 1, 7);
+    pixel('#bd9d64', -7, -10 - step + bob, 2, 1);
   }
-  if (hairStyle === 3) rect(c, hair, x - 4, y - 27 + bob, 4, 4);
+  if (id === 2) {
+    pixel('#eee9dd', -2, -15 + bob, 5, 7);
+    pixel(light, -3, -15 + bob, 1, 4);
+    pixel(light, 3, -15 + bob, 1, 4);
+    pixel('#3d9d9d', 0, -12 + bob, 1, 6);
+    pixel('#56b6b0', 0, -8 + bob, 3, 2);
+  }
+  pixel(hair, -5, -25 + bob, 10, 9);
+  pixel(shine, -4, -24 + bob, 7, 2);
+  pixel(skin, -4, -22 + bob, 8, 7);
+  pixel(hair, -5, -23 + bob, 2, 4);
+  if (id === 0) {
+    pixel(hair, 2, -24 + bob, 3, 5);
+    pixel(shine, -2, -24 + bob, 1, 1);
+  }
+  if (id === 1) {
+    pixel(hair, -5, -27 + bob, 9, 4);
+    pixel(shine, -4, -26 + bob, 6, 1);
+    pixel('#171b20', -6, -24 + bob, 13, 2);
+    pixel('#42633f', 2, -24 + bob, 2, 1);
+    pixel('#444954', -5, -20 + bob, 10, 1);
+    pixel('#444954', -5, -19 + bob, 1, 2);
+    pixel('#444954', 4, -19 + bob, 1, 2);
+    pixel('#b4b7c0', -3, -18 + bob, 2, 1);
+    pixel('#b4b7c0', 2, -18 + bob, 2, 1);
+  }
+  if (id === 2) {
+    pixel(hair, -4, -26 + bob, 8, 3);
+    pixel(shine, -3, -25 + bob, 6, 1);
+    pixel(hair, 1, -23 + bob, 4, 3);
+    pixel(shine, 2, -23 + bob, 2, 1);
+  }
+  if (id === 3) {
+    pixel(hair, -6, -25 + bob, 12, 3);
+    for (const dx of [-5, -1, 3]) {
+      pixel(hair, dx, -27 + bob, 3, 2);
+      pixel(shine, dx, -25 + bob, 2, 1);
+    }
+    pixel(hair, 3, -23 + bob, 2, 2);
+  }
   if (phase % 17 !== 12) {
-    rect(c, '#263233', x - 2 + face, y - 19 + bob, 1, 1);
-    rect(c, '#263233', x + 2 + face, y - 19 + bob, 1, 1);
+    pixel('#283031', -2, -19 + bob, 1, 1);
+    pixel('#283031', 2, -19 + bob, 1, 1);
   }
   if (action === 'talk' && phase % 2)
-    rect(c, '#8b5146', x + face, y - 17 + bob, 2, 1);
+    pixel('#8d5149', -1, -17 + bob, 3, 1);
 }
 
 function rng(seed: number) {
@@ -729,7 +735,7 @@ export function paintAvatar(
   if (image?.complete && image.naturalWidth) {
     const bob = action === 'talk' && Math.floor(time / 155) % 2 ? 1 : 0;
     c.drawImage(image, Math.round(x - 8), Math.round(y - 26 + bob), 16, 26);
-  } else drawPerson(c, id, x, y, time, action);
+  } else drawPerson(c, id, x, y, time, action, false);
 }
 
 function car(
