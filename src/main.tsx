@@ -275,7 +275,14 @@ function App() {
     to: number,
     options: { skip?: boolean; person?: number } = {},
   ) {
-    if (!chapters[to] || (!options.skip && busy.current)) return;
+    const returningToCity = to === 0;
+    // A revealed chapter is interactive while its entrance fade is still running.
+    const returningDuringEntrance =
+      returningToCity && index !== 0 && transition === 'in';
+    if (
+      !chapters[to] ||
+      (busy.current && !options.skip && !returningDuringEntrance)
+    ) return;
     if (to === index && !busy.current) {
       if (options.person !== undefined) setMember(options.person);
       setMenu(null);
@@ -313,27 +320,29 @@ function App() {
       return;
     }
     busy.current = true;
-    setTransition(to === 0 ? 'out-short' : 'out');
+    const cameraTravelMs = 820;
+    const revealDelay = returningToCity ? 320 : 690;
+    setTransition(returningToCity ? 'out-short' : 'out');
     audio.travel();
-    if (to !== 0) setCamera({ view: shot, ms: 820 });
+    if (!returningToCity) setCamera({ view: shot, ms: cameraTravelMs });
     pending.current = [
       window.setTimeout(
         () => {
           reveal();
           setTransition('in');
-          if (to === 0) setCamera({ view: home, ms: 820 });
+          if (returningToCity) setCamera({ view: home, ms: cameraTravelMs });
           if (to === 12)
             setCamera({ view: { x: -48, y: -17, zoom: 0.68 }, ms: 2400 });
           audio.land();
         },
-        to === 0 ? 320 : 690,
+        revealDelay,
       ),
       window.setTimeout(
         () => {
           setTransition('idle');
           busy.current = false;
         },
-        to === 0 ? 1030 : 1110,
+        returningToCity ? revealDelay + cameraTravelMs : 1110,
       ),
     ];
   }
