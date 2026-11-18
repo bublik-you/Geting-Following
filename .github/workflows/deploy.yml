@@ -1,4 +1,4 @@
-name: Deploy presentation to GitHub Pages
+name: Deploy presentations to GitHub Pages
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build and test presentation
+    name: Build and test both presentations
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -26,19 +26,31 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            presentation-2/package-lock.json
       - name: Install locked dependencies
         run: npm ci
-      - name: Build production website
+      - name: Install locked dependencies for presentation 2
+        run: npm --prefix presentation-2 ci
+      - name: Build Four Cats
         run: npm run build
+      - name: Build presentation 2
+        run: npm --prefix presentation-2 run build
+      - name: Assemble both presentations for GitHub Pages
+        run: npm --prefix presentation-2 run assemble:pages
       - name: Prepare Chrome for browser checks
         run: |
           if browser=$(command -v google-chrome); then
             echo "CHROMIUM_PATH=$browser" >> "$GITHUB_ENV"
           else
             npx playwright install --with-deps chromium
+            npm --prefix presentation-2 exec -- playwright install chromium
           fi
-      - name: Test production website and all scenes
+      - name: Test Four Cats and all scenes
         run: npm test
+      - name: Test both presentations and offline cache isolation
+        run: npm --prefix presentation-2 run test:pages
       - name: Package standalone HTML and print summary
         run: npm run package:offline
       - name: Upload offline presentation and A4 summary
@@ -48,11 +60,25 @@ jobs:
           path: |
             offline/four-cats-offline.zip
             offline/executive-summary.pdf
+      - name: Package offline infographics presentation
+        run: npm --prefix presentation-2 run package:offline
+      - name: Test infographics standalone HTML offline
+        run: npm --prefix presentation-2 run test:standalone
+      - name: Upload infographics standalone HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: infographics-html
+          path: presentation-2/offline/infographics.html
+      - name: Upload offline infographics presentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: infographics-offline
+          path: presentation-2/offline/infographics-offline.zip
       - name: Upload GitHub Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: presentation-2/pages-dist
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -88,14 +114,20 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            presentation-2/package-lock.json
       - name: Install locked dependencies
         run: npm ci
+      - name: Install locked dependencies for presentation 2
+        run: npm --prefix presentation-2 ci
       - name: Prepare Chrome for browser checks
         run: |
           if browser=$(command -v google-chrome); then
             echo "CHROMIUM_PATH=$browser" >> "$GITHUB_ENV"
           else
             npx playwright install --with-deps chromium
+            npm --prefix presentation-2 exec -- playwright install chromium
           fi
       - name: Verify deployment URL
         env:
@@ -110,3 +142,7 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: ${{ needs.deploy.outputs.page_url }}
         run: npm test
+      - name: Test both published URLs and offline cache isolation
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: npm --prefix presentation-2 run test:pages
