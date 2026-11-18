@@ -1,3 +1,4 @@
+import { grouping, groupsMarkup } from './grouping';
 import { after, all, bind, clamp, el, frame, scene } from './common';
 
 const branches = [
@@ -8,11 +9,11 @@ const branches = [
 ];
 const leafPoints = [[[12, 16], [14, 42]], [[88, 16], [89, 42]], [[13, 59], [12, 86]], [[88, 60], [89, 86]]];
 
-export const network = scene(() => ({ scale: 1, x: 0, y: 0, picked: -1 }), (stage, { signal, next, sound }, state) => {
+export const network = scene(() => ({ scale: 1, x: 0, y: 0, picked: -1, grouped: new Set<number>() }), (stage, { signal, next, sound }, state) => {
   frame(stage, {
     name: 'network', label: '02 / 08 · Структура', title: 'Найти <em>связь</em>',
     copy: 'Потяните схему или приблизьте двумя пальцами. Выберите ветвь, чтобы раскрыть детали.',
-    body: `<div class="map-board"><div class="map-space">
+    body: `<div class="map-board"><div class="map-space"><div class="map-quadrants" aria-hidden="true"></div>
        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         ${branches.map(({ x, y }, i) => `<path class="branch-link line-${i}" d="M50 50Q${x} 50 ${x} ${y}"/>
           ${leafPoints[i].map(([dx, dy]) => `<path class="map-detail" d="M${x} ${y}Q${dx} ${y} ${dx} ${dy}"/>`).join('')}`).join('')}
@@ -22,12 +23,14 @@ export const network = scene(() => ({ scale: 1, x: 0, y: 0, picked: -1 }), (stag
       ${branches.map(({ name, x, y, leaves }, i) => `<button type="button" class="map-node ${i === 1 ? 'understanding' : ''}" data-branch="${i}" style="--x:${x}%;--y:${y}%">${name}</button>
         ${leaves.map((leaf, j) => `<button type="button" class="map-leaf map-detail" data-leaf="${i}" style="--x:${leafPoints[i][j][0]}%;--y:${leafPoints[i][j][1]}%">${leaf}</button>`).join('')}`).join('')}
     </div><div class="map-controls" aria-label="Масштаб схемы"><button data-zoom-in aria-label="Приблизить">+</button><button data-zoom-out aria-label="Отдалить">−</button><button data-reset-map aria-label="Общий вид">⟲</button></div></div>
-    <div class="map-caption"><span aria-hidden="true"></span><p aria-live="polite"></p><button class="soft" type="button" data-enter>Увидеть закономерности</button></div>`,
+    <div class="map-caption"><span aria-hidden="true"></span><p aria-live="polite"></p><button class="soft" type="button" data-enter>Увидеть закономерности</button><button class="soft" type="button" data-groups>Группировка</button></div>${groupsMarkup}`,
   });
   const board = el(stage, '.map-board');
   const space = el(board, '.map-space');
   const caption = el(stage, '.map-caption p');
   const pointers = new Map<number, { x: number; y: number }>();
+  grouping(stage, signal, state.grouped, sound);
+  const links = all<SVGPathElement>(space, '.branch-link');
   let movement = 0;
   let pinching = false;
   let leaving = false;
@@ -35,8 +38,11 @@ export const network = scene(() => ({ scale: 1, x: 0, y: 0, picked: -1 }), (stag
     space.style.transform = `translate(${state.x}px,${state.y}px) scale(${state.scale})`;
     space.classList.toggle('show-leaves', state.scale > 1.23);
     caption.textContent = branches[state.picked]?.copy ?? 'Нажмите «Понимание», чтобы увидеть закономерности.';
-    for (const button of all(board, '[data-branch]'))
-      button.setAttribute('aria-pressed', String(Number(button.dataset.branch) === state.picked));
+    for (const [i, button] of all(board, '[data-branch]').entries()) {
+      button.setAttribute('aria-pressed', String(i === state.picked));
+      const { x, y } = branches[i];
+      links[i].setAttribute('d', `M50 50Q${x} ${state.picked === i ? y + 8 : 50} ${x} ${y}`);
+    }
   }
   function zoomAt(scale: number, x: number, y: number) {
     const rect = board.getBoundingClientRect();
@@ -58,10 +64,8 @@ export const network = scene(() => ({ scale: 1, x: 0, y: 0, picked: -1 }), (stag
     leaving = true;
     sound('complete');
     stage.classList.add('map-leaving');
-    const rect = board.getBoundingClientRect();
     state.picked = 1;
-    space.style.transform = `translate(${-rect.width * .5}px,${rect.height * .32}px) scale(2.1)`;
-    after(signal, next, 670);
+    after(signal, next, 180);
   }
   for (const button of all<HTMLButtonElement>(board, '[data-branch], [data-leaf]')) {
     button.addEventListener('click', () => {

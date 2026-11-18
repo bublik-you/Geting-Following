@@ -27,8 +27,12 @@ export function point(event: PointerEvent, element: Element) {
 }
 export function after(signal: AbortSignal, callback: () => void, ms: number) {
   if (signal.aborted) return;
-  const timer = window.setTimeout(callback, reducedMotion() ? 0 : ms);
-  signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
+  const cancel = () => clearTimeout(timer);
+  const timer = window.setTimeout(() => {
+    signal.removeEventListener('abort', cancel);
+    callback();
+  }, reducedMotion() ? 0 : ms);
+  signal.addEventListener('abort', cancel, { once: true });
 }
 export function drag(
   element: HTMLElement,
@@ -54,10 +58,11 @@ export function drag(
     if (moved) handlers.move(event);
   }, { signal });
   const finish = (event: PointerEvent) => {
-    if (event.pointerId !== pointer) return;
+    if (event.pointerId !== pointer || (event.type === 'lostpointercapture' && event.target !== element)) return;
     pointer = undefined;
     handlers.end?.(event, event.type !== 'pointerup');
   };
+  element.addEventListener('contextmenu', (event) => event.preventDefault(), { signal });
   element.addEventListener('pointerup', finish, { signal });
   element.addEventListener('pointercancel', finish, { signal });
   element.addEventListener('lostpointercapture', finish, { signal });

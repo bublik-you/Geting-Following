@@ -1,5 +1,7 @@
 import './style.css';
 import './scenes.css';
+import './exhibition.css';
+import { capture, connect } from './continuity';
 import { registerOffline } from './offline';
 import { scenes } from './scenes';
 import { chapterPlan, chapterStart, clock, totalSeconds } from './content';
@@ -35,6 +37,10 @@ const elapsed = (started: number | null) => started === null ? 0 : Math.floor(Ma
 function presentation() {
   const root = el(document, '#presentation-2');
   const stage = el(root, '#scene');
+  const space = document.createElement('div');
+  space.className = 'stage-space';
+  stage.before(space);
+  space.append(stage);
   const menu = el<HTMLDialogElement>(root, '#menu');
   const time = el<HTMLOutputElement>(root, '#clock');
   const start = el<HTMLButtonElement>(root, '#present');
@@ -45,6 +51,7 @@ function presentation() {
 
   let index = 0;
   let lifetime = new AbortController();
+  let stopBridge: (() => void) | undefined;
   let started: number | null = null;
   let soundOn = false;
   let audio: AudioContext | undefined;
@@ -86,10 +93,12 @@ function presentation() {
     } catch { /* Presentation remains available without Web Audio. */ }
   }
   function resize() { stage.style.setProperty('--viewport-height', `${innerHeight}px`); }
-  function showScene(position: number, reset = false) {
+  function showScene(position: number, reset = false, continuation = false) {
     const current = scenes[position];
     if (!current) return;
     const oldIndex = index;
+    stopBridge?.();
+    const shot = continuation && !reducedMotion() ? capture(stage, oldIndex) : undefined;
     lifetime.abort();
     lifetime = new AbortController();
     const { signal } = lifetime;
@@ -100,19 +109,21 @@ function presentation() {
     stage.dataset.index = String(index + 1);
     current.mount(stage, {
       signal,
-      next: () => { if (!signal.aborted) showScene(position + 1); },
+      next: () => { if (!signal.aborted) showScene(position + 1, false, true); },
       restart: () => { if (!signal.aborted) showScene(position, true); },
       sound: tone,
     });
-    if (!reducedMotion()) {
-      const direction = position < oldIndex ? -1 : 1;
-      const transition = stage.animate(
-        [{ opacity: .35, transform: `translateY(${direction * 11}px) scale(.995)` }, { opacity: 1, transform: 'none' }],
-        { duration: 420, easing: 'cubic-bezier(.2,.75,.24,1)' },
-      );
-      signal.addEventListener('abort', () => transition.cancel(), { once: true });
-    }
     skip.hidden = index === scenes.length - 1;
+    skip.textContent = 'Пропустить действие';
+    if (shot) {
+      skip.hidden = false;
+      skip.textContent = 'Пропустить анимацию';
+      stopBridge = connect(shot, stage, oldIndex, signal, () => {
+        stopBridge = undefined;
+        skip.hidden = index === scenes.length - 1;
+        skip.textContent = 'Пропустить действие';
+      });
+    }
     for (const button of all<HTMLButtonElement>(root, '[data-chapter]')) {
       if (Number(button.dataset.chapter) === index) button.setAttribute('aria-current', 'step');
       else button.removeAttribute('aria-current');
@@ -140,7 +151,10 @@ function presentation() {
   el(root, '#scene-list').addEventListener('click', () => menu.showModal());
   el(root, '#fullscreen').addEventListener('click', fullscreen);
   el(root, '#restart').addEventListener('click', () => showScene(index, true));
-  skip.addEventListener('click', () => showScene(index + 1));
+  skip.addEventListener('click', () => {
+    if (stopBridge) stopBridge();
+    else showScene(index + 1);
+  });
   soundButton.addEventListener('click', toggleSound);
   start.addEventListener('click', () => {
     if (started !== null) {
@@ -158,7 +172,7 @@ function presentation() {
     sync();
   });
   window.addEventListener('keydown', (event) => {
-    if (menu.open || event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (root.querySelector('dialog[open]') || event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.target instanceof Element && event.target.closest('input, select, textarea, [contenteditable], [role="slider"]')) return;
     switch (event.key.toLowerCase()) {
       case 'arrowright': event.preventDefault(); showScene(index + 1); break;

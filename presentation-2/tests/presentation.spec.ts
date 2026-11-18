@@ -239,3 +239,122 @@ test('the second PWA reopens all eight scenes with resources and notes offline',
   await notes.goto(url + '?mode=notes');
   await expect(notes.getByRole('heading', { name: 'Финал с веником и песком' })).toBeVisible();
 });
+
+test('micro-interactions reorganize information; all seven transitions preserve geometry', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(relativeURL);
+  await page.evaluate(() => document.fonts.ready);
+  const go = async (label: string, index: number, skip = false) => {
+    await page.getByRole('button', { name: label, exact: true }).click();
+    await atScene(page, index);
+    const bridge = page.locator('.continuity');
+    await expect(bridge).toBeVisible();
+    const svg = await bridge.getAttribute('viewBox');
+    expect(svg).toMatch(/^0 0 /);
+    const element = bridge.locator('path, rect, polygon').first();
+    const attribute = await element.evaluate((node) => node.tagName === 'path' ? 'd' : node.tagName === 'polygon' ? 'transform' : 'x');
+    const before = await element.getAttribute(attribute);
+    await expect.poll(() => element.getAttribute(attribute), { timeout: 500 }).not.toBe(before);
+    if (skip) await page.getByRole('button', { name: 'Пропустить анимацию' }).click();
+    await expect(bridge).toHaveCount(0);
+    await atScene(page, index);
+  };
+
+  await page.getByRole('slider', { name: 'Визуальный шум' }).fill('28');
+  await expect(page.locator('[data-noise-piece][style*="opacity: 1"]')).toHaveCount(28);
+  await page.getByRole('slider', { name: 'Визуальный шум' }).fill('0');
+  await expect(page.locator('[data-noise] output')).toHaveText('0');
+  await page.getByRole('button', { name: 'Собрать в центре' }).click();
+  await go('Открыть сеть', 2);
+  await page.getByRole('button', { name: 'Группировка' }).click();
+  const group = page.getByRole('dialog', { name: 'Соберите группы' });
+  await mouseDrag(page, group.getByRole('button', { name: '72,8', exact: true }), await locationOf(group.locator('[data-zone="0"]'), .52, .72));
+  for (const [label, target] of [['100', 'Числа'], ['Сравнение', 'Отношения'], ['Рост', 'Отношения']]) {
+    await group.getByRole('button', { name: label, exact: true }).click();
+    await group.getByRole('button', { name: target, exact: true }).click();
+  }
+  await expect(group.locator('.group-formed')).toHaveCount(2);
+  await group.getByRole('button', { name: 'Закрыть группировку' }).click();
+  await go('Понимание', 3, true);
+
+  const size = page.getByRole('slider', { name: 'Размер заголовка' });
+  const initial = await page.locator('.mock-text strong').evaluate((node) => getComputedStyle(node).fontSize);
+  await size.fill('82');
+  await expect.poll(() => page.locator('.mock-text strong').evaluate((node) => parseFloat(getComputedStyle(node).fontSize)))
+    .toBeGreaterThan(parseFloat(initial));
+  await expect(page.locator('[data-total]')).toHaveText('100%');
+  await expect(page.locator('.tethers path[d]')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Поднять правую колонку до потолка' }).click();
+  await go('Пройти сквозь потолок', 4, true);
+
+  await page.getByRole('button', { name: 'Показать всё сразу' }).click();
+  await expect(page.locator('.story-order li.illuminated')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Показывать по частям' }).click();
+  await expect(page.locator('.story-order li.illuminated')).toHaveCount(0);
+  for (const name of ['Заголовок', 'Диаграмма', 'Вывод']) await page.locator('.light-objects').getByRole('button', { name: new RegExp(name) }).click();
+  await expect(page.locator('.story-order li.illuminated')).toHaveCount(3);
+  await expect(page.locator('.idea-window')).toBeVisible();
+  await go('Сохранить образы', 5);
+
+  const makePair = async () => {
+    await page.getByRole('button', { name: 'Рост', exact: true }).click();
+    await page.getByRole('button', { name: 'Восходящая линия', exact: true }).click();
+  };
+  await makePair();
+  await expect(page.locator('.linked')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Разъединить' }).click();
+  await expect(page.locator('.linked')).toHaveCount(0);
+  await makePair();
+  await go('Вытянуть линию в ось', 6);
+
+  await page.getByRole('button', { name: 'Наложение', exact: true }).click();
+  await expect(page.locator('.overlay-bars rect')).toHaveCount(2);
+  await expect(page.locator('.axis-insight')).toContainText('Одна информация. Разное впечатление.');
+  await page.getByRole('button', { name: 'Обрезанная', exact: true }).click();
+  await expect(page.locator('[data-scale]')).toHaveText('65');
+  await page.getByRole('button', { name: 'От нуля', exact: true }).click();
+  await expect(page.locator('[data-scale]')).toHaveText('0');
+  await expect(page.locator('#plot-right [data-value="1"]')).toHaveText('74');
+  await go('Собрать главную мысль', 7);
+  for (const button of await page.locator('.trace-point').all()) await button.click();
+  await go('Следовать за песком', 8);
+  await page.getByRole('button', { name: 'Сметать по строкам' }).click();
+  await expect(page.getByText('Спасибо за внимание!')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('a cancelled tablet gesture releases the wall without jumping and fullscreen stays usable', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ viewport: {width: 1100, height: 720}, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
+  try {
+    const page = await context.newPage();
+    await page.goto(new URL(relativeURL, baseURL).href);
+    await page.evaluate(() => document.fonts.ready);
+    await page.getByRole('button', { name: 'Полноэкранный режим' }).tap();
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement?.id)).toBe('presentation-2');
+    await page.getByRole('button', { name: 'Полноэкранный режим' }).tap();
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull();
+    await jump(page, 3);
+    await page.getByRole('button', { name: 'Поднять правую колонку до потолка' }).click();
+    const right = page.getByRole('slider', { name: 'Свободное пространство' });
+    const from = await locationOf(right);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {type:'touchStart', touchPoints:[from]});
+    await cdp.send('Runtime.evaluate', {expression:'new Promise(resolve => setTimeout(resolve, 440))', awaitPromise:true});
+    await expect(right).toHaveAttribute('aria-valuenow', '100');
+    await atScene(page, 3);
+    await cdp.send('Input.dispatchTouchEvent', {type:'touchMove', touchPoints:[coords(from.x, from.y - 135)]});
+    await expect(page.locator('.column-lab')).toHaveClass(/wall-armed/);
+    await cdp.send('Input.dispatchTouchEvent', {type:'touchCancel', touchPoints:[]});
+    await expect(page.locator('.column-lab')).not.toHaveClass(/wall-armed/);
+    await atScene(page, 3);
+    await touchPath(cdp, [await locationOf(right), coords(from.x, from.y - 135)]);
+    await atScene(page, 4);
+    await page.keyboard.press('ArrowLeft');
+    await atScene(page, 3);
+    await expect(right).toHaveAttribute('aria-valuenow', '100');
+  } finally {
+    await context.close();
+  }
+});

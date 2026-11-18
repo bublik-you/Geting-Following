@@ -7,18 +7,21 @@ const objects = [
   { title: 'Диаграмма', note: 'Если сначала выделить диаграмму, сравнение становится текущей задачей зрителя.', art: '<div class="light-chart" aria-hidden="true"><i></i><i></i><i></i><i></i></div>' },
   { title: 'Вывод', note: 'Последний акцент связывает увиденное с основной мыслью выступления.', art: '<strong>Связи важнее деталей.</strong>' },
 ];
+const roles = ['Задаёт вопрос', 'Уточняет', 'Связывает идеи', 'Помогает сравнить', 'Подводит итог'];
 const route = [[140, 108], [96, 65], [180, 43], [226, 75]];
 
-export const attention = scene(() => ({ selected: -1, x: .49, y: .14, played: false, step: 0 }), (stage, { signal, next, sound }, state) => {
+export const attention = scene(() => ({ selected: -1, x: .49, y: .14, played: false, step: 0, stops: new Set<number>(), whole: false }), (stage, { signal, next, sound }, state) => {
   frame(stage, {
     name: 'attention', label: '04 / 08 · Внимание', title: 'Куда направить <em>свет?</em>',
     copy: 'Передвигайте прожектор или нажимайте на объекты. Осветите дерево, чтобы увидеть мини-презентацию.', dark: true,
     body: `<div class="exhibition" data-lit="false">
-      <div class="light-haze" aria-hidden="true"></div>
+      <div class="light-haze" aria-hidden="true"></div><div class="aperture" aria-hidden="true"></div>
       <div class="light-objects">${objects.map(({ title, art }, i) => `<button class="light-object light-${i}" data-light="${i}" type="button"><span>${title}</span>${art}</button>`).join('')}</div>
+      <p class="focus-tag" hidden></p>
       <button type="button" class="spot-handle" aria-label="Прожектор" title="Перетащите прожектор"><span aria-hidden="true">✧</span></button>
     </div>
     <div class="attention-detail">
+      <div class="story-order"><ol aria-label="Порядок истории"><li>Поставить вопрос</li><li>Показать связь</li><li>Сформулировать вывод</li></ol><button class="soft" type="button" data-story-mode aria-pressed="false">Показать всё сразу</button></div>
       <div><span class="micro-label">В фокусе</span><h2 data-focus-title>Весь зал</h2><p data-focus-copy aria-live="polite">Пять объектов одновременно претендуют на внимание.</p></div>
       <div class="idea-window" hidden>
         <svg viewBox="0 0 280 138" aria-label="Пиксельный персонаж следует между ветвями">
@@ -46,7 +49,44 @@ export const attention = scene(() => ({ selected: -1, x: .49, y: .14, played: fa
   const items = all<HTMLButtonElement>(board, '[data-light]');
   const narrative = el(stage, '.idea-window');
   const avatar = el<SVGGElement>(narrative, '.idea-avatar');
+  const storyMode = el(stage, '[data-story-mode]');
+  const storySteps = all(stage, '.story-order li');
+  const chapters = [0, 3, 4];
   let run = 0;
+  let guided = false;
+  let entering = false;
+
+  function order() {
+    storySteps.forEach((step, i) => { step.classList.toggle('illuminated', state.whole || state.stops.has(chapters[i])); });
+    storyMode.setAttribute('aria-pressed', String(state.whole));
+    storyMode.textContent = state.whole ? 'Показывать по частям' : 'Показать всё сразу';
+    stage.classList.toggle('story-whole', state.whole);
+  }
+  function gather() {
+    if (entering) return;
+    entering = true;
+    board.classList.add('story-gather');
+    after(signal, () => {
+      narrative.hidden = false;
+      el(stage, '[data-dissolve]').hidden = false;
+      play();
+      entering = false;
+    }, 280);
+  }
+  function guide() {
+    if (guided || entering) return;
+    if (state.played || state.whole || chapters.every((i) => state.stops.has(i))) {
+      gather();
+      return;
+    }
+    guided = true;
+    for (const [step, i] of chapters.entries()) after(signal, () => select(i, true, false), 210 * step);
+    after(signal, () => {
+      guided = false;
+      select(2, true, false);
+      gather();
+    }, 740);
+  }
 
   function plotStep(step: number) {
     state.step = step;
@@ -77,21 +117,25 @@ export const attention = scene(() => ({ selected: -1, x: .49, y: .14, played: fa
     const object = objects[index];
     el(stage, '[data-focus-title]').textContent = object.title;
     el(stage, '[data-focus-copy]').textContent = object.note;
+    state.stops.add(index);
+    const tag = el(board, '.focus-tag');
+    tag.textContent = roles[index];
+    tag.hidden = false;
+    order();
     if (moveLamp) {
       const rect = board.getBoundingClientRect();
       const target = items[index].getBoundingClientRect();
       place((target.left - rect.left + target.width / 2) / rect.width, (target.top - rect.top + target.height / 2) / rect.height);
     }
-    if (index === 2) {
-      narrative.hidden = false;
-      el(stage, '[data-dissolve]').hidden = false;
-      if (playSound && (!state.played || previous !== index)) play();
-    }
+    if (playSound && index === 2) guide();
+    else if (playSound && chapters.every((i) => state.stops.has(i)) && !state.played) gather();
     if (playSound && previous !== index) sound();
   }
 
   for (const [i, item] of items.entries()) item.addEventListener('click', () => select(i), { signal });
   drag(lamp, signal, {
+    start() { board.classList.add('moving-light'); },
+    end() { board.classList.remove('moving-light'); },
     move(event) {
       const { x, y } = point(event, board);
       place(x, y);
@@ -110,14 +154,19 @@ export const attention = scene(() => ({ selected: -1, x: .49, y: .14, played: fa
   }, { signal });
   bind(stage, '[data-tree]', () => select(2), signal);
   bind(stage, '[data-play-story]', play, signal);
+  bind(stage, '[data-story-mode]', () => {
+    state.whole = !state.whole;
+    order();
+  }, signal);
   bind(stage, '[data-dissolve]', () => {
     if (stage.classList.contains('dissolving')) return;
     stage.classList.add('dissolving');
     sound('complete');
-    after(signal, next, 640);
+    after(signal, next, 210);
   }, signal);
   place(state.x, state.y);
   plotStep(state.step);
+  order();
   if (state.played) { narrative.hidden = false; el(stage, '[data-dissolve]').hidden = false; }
   if (state.selected >= 0) select(state.selected, false, false);
 });

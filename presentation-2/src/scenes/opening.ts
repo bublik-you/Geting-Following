@@ -19,7 +19,7 @@ const fragments = [
   { at: [554, 50], to: [489, 241], angle: 22, markup: '<path d="M-20 0h40m-6-7 6 7-6 7"/>' },
 ];
 
-export const opening = scene(() => ({ organized: false }), (stage, { signal, next, sound }, state) => {
+export const opening = scene(() => ({ organized: false, noise: 9 }), (stage, { signal, next, sound }, state) => {
   frame(stage, {
     name: 'opening', label: '01 / 08 · Вступление',
     title: 'Информации<br>становится больше.<br><em>Понимать её легче?</em>',
@@ -29,17 +29,27 @@ export const opening = scene(() => ({ organized: false }), (stage, { signal, nex
         <defs><pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".85" fill="#217b80" opacity=".28"/></pattern></defs>
         <rect width="600" height="430" fill="url(#grid)"/>
         <g class="chaos-threads"><path d="M32 32 552 280M108 395 544 50M29 253 557 141M59 356 385 53M275 28 78 346M115 55 491 380" /></g>
+        <g class="noise-field">${Array.from({length: 28}, (_, i) => `<g data-noise-piece style="transform:translate(${23 + i * 137 % 550}px,${26 + i * 81 % 385}px) rotate(${i * 25 % 61 - 30}deg)">${i % 3 === 0 ? '<path d="M0 0h23m-6-5 6 5-6 5"/>' : `<text>${i % 3 === 1 ? i * 17 + 4 : '···'}</text>`}</g>`).join('')}</g>
         <g class="ordered-links">${fragments.map(({ to }) => `<path d="M300 215Q${(to[0] + 300) / 2} ${to[1] + 12} ${to[0]} ${to[1]}"/>`).join('')}</g>
         ${fragments.map(({ at, angle, markup }, i) => `<g class="fragment fragment-${i % 3}" style="transform:translate(${at[0]}px,${at[1]}px) rotate(${angle}deg)">${markup}</g>`).join('')}
       </svg>
       <span class="chaos-target" aria-hidden="true"><i></i></span>
       <button type="button" class="sense-token" aria-label="Смысл">СМЫСЛ</button>
     </div>`,
-    actions: '<button type="button" class="soft" data-organize>Собрать в центре</button><button type="button" class="primary" data-continue hidden>Открыть сеть</button>',
+    actions: '<label class="micro-range noise-range" data-noise>Визуальный шум <input type="range" min="0" max="28" aria-label="Визуальный шум"><output></output></label><button type="button" class="soft" data-organize>Собрать в центре</button><button type="button" class="primary" data-continue hidden>Открыть сеть</button>',
   });
   const board = el(stage, '.chaos-board');
   const token = el<HTMLButtonElement>(board, '.sense-token');
   const pieces = all<SVGGElement>(board, '.fragment');
+  const slider = el<HTMLInputElement>(stage, '[data-noise] input');
+  const noise = all<SVGGElement>(board, '[data-noise-piece]');
+  function renderNoise() {
+    slider.value = String(state.noise);
+    el(stage, '[data-noise] output').textContent = String(state.noise);
+    noise.forEach((piece, i) => { piece.style.opacity = i < state.noise ? '1' : '0'; });
+  }
+  slider.addEventListener('input', () => { state.noise = slider.valueAsNumber; renderNoise(); }, { signal });
+  renderNoise();
   function place(x: number, y: number) {
     token.style.left = `${100 * x}%`;
     token.style.top = `${100 * y}%`;
@@ -57,6 +67,7 @@ export const opening = scene(() => ({ organized: false }), (stage, { signal, nex
     el(stage, '.scene-header p').textContent = 'Визуальная иерархия помогает выделить главное и связать детали.';
     el(stage, '[data-continue]').hidden = false;
     el(stage, '[data-organize]').hidden = true;
+    el(stage, '[data-noise]').hidden = true;
     if (play) sound('complete');
   }
   if (state.organized) organize(false);
