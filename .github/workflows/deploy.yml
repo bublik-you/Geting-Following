@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: github-pages-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -30,8 +30,13 @@ jobs:
         run: npm ci
       - name: Build production website
         run: npm run build
-      - name: Install Chromium for browser checks
-        run: npx playwright install --with-deps chromium
+      - name: Prepare Chrome for browser checks
+        run: |
+          if browser=$(command -v google-chrome); then
+            echo "CHROMIUM_PATH=$browser" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
       - name: Test production website and all scenes
         run: npm test
       - name: Package standalone HTML and print summary
@@ -85,8 +90,13 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Install Chromium for browser checks
-        run: npx playwright install --with-deps chromium
+      - name: Prepare Chrome for browser checks
+        run: |
+          if browser=$(command -v google-chrome); then
+            echo "CHROMIUM_PATH=$browser" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
       - name: Verify deployment URL
         env:
           DEPLOYMENT_URL: ${{ needs.deploy.outputs.page_url }}
