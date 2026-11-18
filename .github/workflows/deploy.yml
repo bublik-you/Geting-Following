@@ -62,6 +62,13 @@ jobs:
             offline/executive-summary.pdf
       - name: Package offline infographics presentation
         run: npm --prefix presentation-2 run package:offline
+      - name: Test infographics standalone HTML offline
+        run: npm --prefix presentation-2 run test:standalone
+      - name: Upload infographics standalone HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: infographics-html
+          path: presentation-2/offline/infographics.html
       - name: Upload offline infographics presentation
         uses: actions/upload-artifact@v4
         with:

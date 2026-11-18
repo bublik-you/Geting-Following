@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build && node scripts/cache-build.mjs",
     "build:portable": "vite build --base ./ --outDir portable && node scripts/cache-build.mjs portable",
     "package:offline": "npm run build:portable && node scripts/package-offline.mjs",
+    "test:standalone": "node tests/standalone.mjs",
     "preview": "vite preview",
     "assemble:pages": "node scripts/assemble-pages.mjs",
     "preview:pages": "vite preview --base /Geting-Following/ --outDir pages-dist --host 127.0.0.1 --port 4174 --strictPort",

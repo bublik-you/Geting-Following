@@ -1,4 +1,10 @@
 export async function registerOffline(status: HTMLElement) {
+  if (document.documentElement.hasAttribute('data-standalone')) {
+    status.hidden = false;
+    status.textContent = 'Автономный файл';
+    return;
+  }
+
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
 
   const base = new URL(import.meta.env.BASE_URL, location.href);
