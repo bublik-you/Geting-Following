@@ -1,23 +1,39 @@
 <!doctype html>
 <html lang="ru">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#ffffff" />
-    <title>Презентация 2</title>
-    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
-    <link rel="icon" href="%BASE_URL%icon.svg" type="image/svg+xml" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#172333">
+    <meta name="description" content="Восемь интерактивных сцен о внимании, понимании, памяти и суждении.">
+    <title>Сила инфографики и презентаций</title>
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest">
+    <link rel="icon" href="%BASE_URL%icon.svg" type="image/svg+xml">
   </head>
   <body>
-    <main id="presentation-2">
-      <p id="offline-status" role="status" hidden></p>
-      <p id="empty-state">Сцены пока не добавлены.</p>
-      <section id="scene" hidden></section>
-      <nav aria-label="Сцены" hidden>
-        <button id="previous" type="button">Назад</button>
-        <output id="progress"></output>
-        <button id="next" type="button">Далее</button>
-      </nav>
+    <main id="presentation-2" class="exhibit">
+      <header class="masthead">
+        <button class="brand" id="home" type="button" aria-label="Первая сцена">
+          <svg viewBox="0 0 38 38" aria-hidden="true"><rect x="1" y="1" width="36" height="36" rx="10" fill="none" stroke="currentColor"/><path d="M10 25h18M12 22l6-7 5 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="27" cy="12" r="2.4" fill="#8ed9c2"/></svg>
+          <span>Сила инфографики<small>И ПРЕЗЕНТАЦИЙ</small></span>
+        </button>
+        <div class="toolbar">
+          <p id="offline-status" role="status" hidden></p>
+          <button class="tool" id="sound" type="button" aria-label="Включить звук" aria-pressed="false" title="Звук · M"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM17 9l4 6m0-6-4 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button class="tool" id="fullscreen" type="button" aria-label="Полноэкранный режим" title="Полноэкранный режим · F"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V3h5m8 0h5v5m0 8v5h-5m-8 0H3v-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+          <button class="present" id="present" type="button">Начать выступление</button>
+        </div>
+      </header>
+      <section id="scene" class="stage" aria-label="Текущая сцена"></section>
+      <footer class="control-desk">
+        <div class="control-left"><button id="scene-list" type="button">Сцены</button><button id="skip" type="button">Пропустить действие</button></div>
+        <div class="progress" id="progress" aria-label="Сцены презентации"></div>
+        <div class="control-right">
+          <a id="notes" href="?mode=notes" target="infographics-notes" rel="noopener">Заметки</a>
+          <output id="clock" aria-label="Таймер выступления">0:00 / 7:00</output>
+          <button id="restart" type="button" aria-label="Перезапустить сцену" title="Перезапустить сцену · R">↻</button>
+        </div>
+      </footer>
+      <dialog id="menu" aria-labelledby="menu-title"><div class="menu-inner"><header><h2 id="menu-title">Сцены</h2><form method="dialog"><button aria-label="Закрыть">×</button></form></header><ol id="chapter-list"></ol><p class="shortcuts">← → сменить сцену · R повторить · F полный экран · M звук</p></div></dialog>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

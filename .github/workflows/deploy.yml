@@ -60,6 +60,13 @@ jobs:
           path: |
             offline/four-cats-offline.zip
             offline/executive-summary.pdf
+      - name: Package offline infographics presentation
+        run: npm --prefix presentation-2 run package:offline
+      - name: Upload offline infographics presentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: infographics-offline
+          path: presentation-2/offline/infographics-offline.zip
       - name: Upload GitHub Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3

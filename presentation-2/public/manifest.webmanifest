@@ -1,12 +1,12 @@
 {
   "id": "/Geting-Following/presentation-2/",
-  "name": "Презентация 2",
-  "short_name": "Презентация 2",
+  "name": "Сила инфографики и презентаций",
+  "short_name": "Инфографика",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#f7f4ec",
+  "theme_color": "#f7f4ec",
   "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
 }

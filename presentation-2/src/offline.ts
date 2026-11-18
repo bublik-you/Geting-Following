@@ -1,7 +1,7 @@
 export async function registerOffline(status: HTMLElement) {
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
 
-  const base = new URL(import.meta.env.BASE_URL, location.origin);
+  const base = new URL(import.meta.env.BASE_URL, location.href);
   const worker = new URL('sw.js', base);
   const registration = navigator.serviceWorker;
 

@@ -7,7 +7,7 @@ async function expectPresentation(page: Page, url: URL, second: boolean) {
   } else {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Бизнес-разведка');
   }
-  await expect(page.getByRole('status')).toHaveText('Готово офлайн');
+  await expect(page.getByText('Готово офлайн', { exact: true })).toHaveText('Готово офлайн');
   await expect.poll(() => page.evaluate(() => navigator.serviceWorker.controller?.scriptURL))
     .toBe(new URL('sw.js', url).href);
 }
