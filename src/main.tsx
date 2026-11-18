@@ -1,86 +1,672 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import type Phaser from 'phaser';
-import { createWorld, Journey } from './world';
-import { chapters } from './story';
 import { audio } from './audio';
+import { Avatar, City } from './City';
+import { localFile } from './data/content';
+import type { Venue } from './data/content';
+import {
+  Appendix,
+  ChapterScene,
+  initialNotes,
+  Notes,
+  notesKey,
+  Summary,
+} from './Scenes';
+import type { SpeakerState } from './Scenes';
+import { chapters, defenseSeconds, number, timecode } from './story';
+import { focus, home, points, wide } from './world';
+import type { View } from './world';
 import './style.css';
-type Phase='intro'|'moving'|'typing'|'reading';
-function Icon({name}:{name:'sound'|'mute'|'back'|'restart'|'expand'|'next'}){
- const paths={sound:<><path d="m4 9 4 0 5-4v14l-5-4H4z"/><path d="M16 8c3 2 3 6 0 8m3-11c5 4 5 10 0 14"/></>,mute:<><path d="m4 9 4 0 5-4v14l-5-4H4z"/><path d="m17 9 5 6m0-6-5 6"/></>,back:<path d="m14 6-6 6 6 6M8 12h13"/>,restart:<><path d="M5 9a8 8 0 1 1 0 7M5 3v6h6"/></>,expand:<path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/>,next:<path d="m9 6 6 6-6 6M3 12h12"/>};
- return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="square" aria-hidden="true">{paths[name]}</svg>;
+
+function elapsedSince(started: number | null) {
+  return started === null
+    ? 0
+    : Math.max(0, Math.floor((Date.now() - started) / 1000));
 }
-function App(){
- const host=useRef<HTMLDivElement>(null),game=useRef<Phaser.Game|null>(null),phaseRef=useRef<Phase>('intro'),indexRef=useRef(0),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
- const [phase,setPhase]=useState<Phase>('intro'),[index,setIndex]=useState(0),[typed,setTyped]=useState(0),[ready,setReady]=useState(false),[muted,setMuted]=useState(()=>{try{return localStorage.getItem('tree-muted')==='true';}catch{return false;}}),[fullscreen,setFullscreen]=useState(false),[error,setError]=useState(false);
- const [finale,setFinale]=useState<'idle'|'gathering'|'singularity'>('idle');
- const c=chapters[index];
- const changePhase=useCallback((p:Phase)=>{phaseRef.current=p;setPhase(p);},[]);
- const scene=()=>game.current?.scene.getScene('journey') as Journey|undefined;
- const stopTyping=useCallback(()=>{if(timer.current!==null)clearTimeout(timer.current);timer.current=null;},[]);
- const narrate=useCallback((n:number)=>{
-  stopTyping();setTyped(0);indexRef.current=n;setIndex(n);changePhase('typing');let at=0;const text=chapters[n].text;
-  const tick=()=>{if(phaseRef.current!=='typing')return;at++;setTyped(at);if(!/[\s.,!?:;—]/.test(text[at-1]))audio.syllable(at);if(at>=text.length){changePhase('reading');return;}const delay=/[.!?]/.test(text[at-1])?170:/[,;:]/.test(text[at-1])?70:18;timer.current=setTimeout(tick,delay);};
-  timer.current=setTimeout(tick,150);
- },[changePhase,stopTyping]);
- useEffect(()=>{
-  if(!host.current)return;
-  try{game.current=createWorld(host.current,{ready:()=>setReady(true),arrived:narrate,finale:setFinale});}catch{setError(true);}
-  return()=>{stopTyping();game.current?.destroy(true);game.current=null;};
- },[narrate,stopTyping]);
- useEffect(()=>{audio.setMuted(muted);try{localStorage.setItem('tree-muted',String(muted));}catch{}},[muted]);
- useEffect(()=>{scene()?.setTalking(phase==='typing');},[phase]);
- const next=useCallback(()=>{
-  void audio.unlock();
-  if(phaseRef.current==='intro'){if(ready)narrate(0);return;}
-  if(phaseRef.current==='moving')return;
-  if(phaseRef.current==='typing'){stopTyping();setTyped(chapters[indexRef.current].text.length);changePhase('reading');return;}
-  if(indexRef.current>=chapters.length-1)return;
-  const n=indexRef.current+1;changePhase('moving');setTyped(0);(game.current?.scene.getScene('journey') as Journey).go(n);
- },[ready,narrate,stopTyping,changePhase]);
- const go=useCallback((n:number)=>{
-  if(phaseRef.current==='moving'||phaseRef.current==='intro')return;void audio.unlock();stopTyping();changePhase('moving');setTyped(0);(game.current?.scene.getScene('journey') as Journey).go(n);
- },[stopTyping,changePhase]);
- const restart=useCallback(()=>{if(phaseRef.current==='moving')return;go(0);},[go]);
- const toggleFullscreen=useCallback(async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{/* Not all embedded browsers allow fullscreen. */}},[]);
- useEffect(()=>{const sync=()=>setFullscreen(Boolean(document.fullscreenElement));document.addEventListener('fullscreenchange',sync);return()=>document.removeEventListener('fullscreenchange',sync);},[]);
- useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.target instanceof Element&&e.target.closest('button')&&['Enter',' '].includes(e.key))return;if(['ArrowRight',' ','Enter'].includes(e.key)){e.preventDefault();next();}if(e.key==='ArrowLeft'){e.preventDefault();go(Math.max(0,indexRef.current-1));}if(e.key==='Home'){e.preventDefault();restart();}if(e.key.toLowerCase()==='m')setMuted(v=>!v);if(e.key.toLowerCase()==='f')void toggleFullscreen();};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[next,go,restart,toggleFullscreen]);
- const intro=phase==='intro',moving=phase==='moving';
- return <main className={`presentation ${intro?'is-intro':''} ${moving?'is-moving':''} ${finale!=='idle'?'is-finale':''}`} data-finale={finale} style={{'--accent':['#83e9ff','#b8b1ff','#dca9ef'][index%3]} as React.CSSProperties} onClick={e=>{if(!(e.target as HTMLElement).closest('button,a,summary'))next();}}>
-  <div className="world" ref={host} role="img" aria-label={finale==='idle'?'Космическое дерево коммуникаций: путешественник в остроконечной шляпе с посохом':finale==='gathering'?'Путешественник перемещается в центр, линии тем закручиваются в сингулярность':'Путешественник в центре светящейся спиральной сингулярности'} />
-  <div className="vignette"/>
-  <header className="topbar">
-   <div className="brand"><span className="brand-mark" aria-hidden="true"><i/><i/><i/><i/><i/></span><span>ДЕРЕВО<br/><b>КОММУНИКАЦИЙ</b></span></div>
-   <div className="edition">ИНТЕРАКТИВНОЕ ПУТЕШЕСТВИЕ <span> / </span> 18 СЦЕН</div>
-   <nav aria-label="Настройки презентации" className="tools">
-    <button title={muted?'Включить звук (M)':'Выключить звук (M)'} aria-label={muted?'Включить звук':'Выключить звук'} aria-pressed={muted} onClick={()=>{void audio.unlock();setMuted(v=>!v);}}><Icon name={muted?'mute':'sound'}/></button>
-    <button title="Полный экран (F)" aria-label={fullscreen?'Выйти из полного экрана':'Полный экран'} onClick={()=>void toggleFullscreen()}><Icon name="expand"/></button>
-   </nav>
-  </header>
-  {intro ? <section className="cover" aria-labelledby="cover-title">
-   <div className="eyebrow"><span/> МАЛЕНЬКАЯ ИСТОРИЯ О БОЛЬШИХ СВЯЗЯХ</div>
-   <h1 id="cover-title">Всё начинается<br/>с <em>диалога.</em></h1>
-   <p className="cover-topic">Влияние социальных сетей<br/>на корпоративные коммуникации</p>
-   <button className="begin" disabled={!ready||error} onClick={next}><span>{error?'Не удалось запустить графику':ready?'Начать путешествие':'Пробуждаем лес…'}</span><Icon name="next"/></button>
-   <div className="cover-details"><span>7–8 МИНУТ</span><i/><span>ОДНО КАСАНИЕ — НОВАЯ СЦЕНА</span></div>
-   <span className="hero-intro-label">ваш проводник <span>↙</span></span>
-  </section> : <>
-   <section className="scene-heading" aria-label={`Сцена ${index+1} из 18`}><div className="eyebrow"><span/>{String(index+1).padStart(2,'0')} / {c.chapter}</div><h1>{c.title}</h1></section>
-   <div className="location"><span className="location-dot"/>{moving?'В пути…':c.place}</div>
-   <section className={`dialogue ${moving?'hidden':''}`} aria-label="Реплика рассказчика">
-    <div className="speaker"><span className="speaker-light"/>ПРОВОДНИК<span className="speech-dots" aria-hidden="true">{phase==='typing'?'•••':''}</span></div>
-    <p aria-hidden="true">{c.text.slice(0,typed)}<span className={`cursor ${phase==='typing'?'visible':''}`}/></p>
-    <p className="sr-only" aria-live="polite" aria-atomic="true">{moving?'':c.text}</p>
-    <div className="dialogue-bottom"><span>{phase==='typing'?'КАСАНИЕ — ПОКАЗАТЬ ВЕСЬ ТЕКСТ':index===17?'КОНЕЦ ПУТЕШЕСТВИЯ':'КАСАНИЕ — ПРОДОЛЖИТЬ'}</span><span aria-hidden="true" className="continue-mark">{phase==='typing'?'···':'↓'}</span></div>
-    <div className="bubble-tail"/>
-   </section>
-   {index===17&&!moving&&<span className="thank-you">Спасибо за внимание!</span>}
-  </>}
-  <footer className="bottom-bar">
-   <div className="footer-left">{!intro?<><button className="back-button" disabled={moving||index===0} onClick={()=>go(Math.max(0,index-1))} aria-label="Предыдущая сцена" title="Предыдущая сцена (←)"><Icon name="back"/></button><button disabled={moving} onClick={restart} aria-label="Начать заново" title="Начать заново (Home)"><Icon name="restart"/></button><span className="scene-count">{String(index+1).padStart(2,'0')} <span>/ 18</span></span></>:<span className="footer-caption">СЛУШАТЬ. ПОНИМАТЬ. СОЕДИНЯТЬ.</span>}</div>
-   {!intro&&<div className="progress" role="progressbar" aria-label="Прогресс путешествия" aria-valuemin={1} aria-valuemax={18} aria-valuenow={index+1}>{chapters.map((_,i)=><i key={i} className={i<=index?'done':''}/>)}</div>}
-   <span className="footer-right">{intro?'ИСТОРИЯ, КОТОРОЙ УПРАВЛЯЕТЕ ВЫ':moving?'СЛЕДУЕМ ЗА ПРОВОДНИКОМ':<><kbd>←</kbd><kbd>→</kbd><span> ИЛИ КОСНИТЕСЬ ЭКРАНА</span></>}</span>
-  </footer>
- </main>;
+function useElapsed(started: number | null) {
+  const [elapsed, setElapsed] = useState(() => elapsedSince(started));
+  useEffect(() => {
+    const refresh = () => setElapsed(elapsedSince(started));
+    refresh();
+    if (started === null) return;
+    const timer = window.setInterval(refresh, 200);
+    return () => window.clearInterval(timer);
+  }, [started]);
+  return elapsed;
 }
-createRoot(document.getElementById('root')!).render(<App/>);
+
+function Dialog({
+  children,
+  onClose,
+  label,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  label: string;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      aria-label={label}
+      onCancel={onClose}
+      onClick={(event) => {
+        if (event.target === ref.current) onClose();
+      }}
+    >
+      <div className="dialog-inner">
+        <button className="close-dialog" onClick={onClose} aria-label="Закрыть">
+          ×
+        </button>
+        {children}
+      </div>
+    </dialog>
+  );
+}
+
+function Speech({
+  index,
+  page,
+  setPage,
+  muted,
+  enabled,
+}: {
+  index: number;
+  page: number;
+  setPage: (page: number) => void;
+  muted: boolean;
+  enabled: boolean;
+}) {
+  const lines = chapters[index].lines;
+  const line = lines[page];
+  const [count, setCount] = useState(0);
+  const token = useRef(0);
+  const recording = useRef<HTMLAudioElement | null>(null);
+  const silence = useRef(muted);
+  silence.current = muted;
+  const chars = Array.from(line?.text ?? '');
+  const src = localFile(line?.audio ?? '');
+  useEffect(() => {
+    token.current = 0;
+    setCount(0);
+    if (!enabled || !line?.text) return;
+    const length = Array.from(line.text).length;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let voice: HTMLAudioElement | undefined;
+    let interval = 0;
+    const delay = window.setTimeout(() => {
+      if (src) {
+        voice = new Audio(src);
+        voice.muted = silence.current;
+        recording.current = voice;
+        void voice.play().catch(() => {
+          if (recording.current === voice) recording.current = null;
+        });
+      }
+      if (reduce) {
+        token.current = length;
+        setCount(length);
+        return;
+      }
+      interval = window.setInterval(() => {
+        token.current++;
+        setCount(token.current);
+        if (!recording.current) audio.syllable(token.current - 1);
+        if (token.current >= length) window.clearInterval(interval);
+      }, 30);
+    }, 320);
+    return () => {
+      window.clearTimeout(delay);
+      window.clearInterval(interval);
+      voice?.pause();
+      recording.current = null;
+    };
+  }, [line, src, enabled]);
+  useEffect(() => {
+    if (recording.current) recording.current.muted = muted;
+  }, [muted]);
+  if (!line) return null;
+
+  return (
+    <aside className="speech">
+      <div className="speaker">
+        <Avatar
+          id={0}
+          action={count > 0 && count < chars.length ? 'talk' : 'idle'}
+        />
+      </div>
+      <div className="bubble">
+        <div className="speech-copy">
+          <small>Рассказчик</small>
+          <p aria-hidden="true">
+            {chars.slice(0, Math.min(count, chars.length)).join('')}
+            {count < chars.length && <i className="caret" />}
+          </p>
+          <span className="sr-only">{line.text}</span>
+        </div>
+        {lines.length > 1 && (
+          <div className="speech-controls">
+            <button
+              aria-label="Предыдущая реплика"
+              disabled={!page}
+              onClick={() => setPage(page - 1)}
+            >
+              ‹
+            </button>
+            <span>
+              {page + 1}/{lines.length}
+            </span>
+            <button
+              aria-label="Следующая реплика"
+              disabled={page === lines.length - 1}
+              onClick={() => setPage(page + 1)}
+            >
+              ›
+            </button>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function SpeakerWindow() {
+  const read = (): SpeakerState => {
+    try {
+      const item = JSON.parse(
+        localStorage.getItem(notesKey) ?? 'null',
+      ) as SpeakerState | null;
+      return item && chapters[item.index] && typeof item.page === 'number'
+        ? item
+        : initialNotes;
+    } catch {
+      return initialNotes;
+    }
+  };
+  const [state, setState] = useState(read);
+  const elapsed = useElapsed(state.started);
+  useEffect(() => {
+    const update = (event: StorageEvent) => {
+      if (event.key === notesKey) setState(read());
+    };
+    window.addEventListener('storage', update);
+    return () => window.removeEventListener('storage', update);
+  }, []);
+  return <Notes state={state} elapsed={elapsed} />;
+}
+
+function App() {
+  const [index, setIndex] = useState(0);
+  const [member, setMember] = useState(0);
+  const [venue, setVenue] = useState<Venue>('burger');
+  const [page, setPage] = useState(0);
+  const [started, setStarted] = useState<number | null>(null);
+  const elapsed = useElapsed(started);
+  const [muted, setMuted] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const [menu, setMenu] = useState<'chapters' | 'appendix' | null>(null);
+  const [instant, setInstant] = useState(false);
+  const [transition, setTransition] = useState<
+    'out' | 'out-short' | 'in' | 'idle'
+  >('idle');
+  const leaving = transition === 'out' || transition === 'out-short';
+  const [camera, setCamera] = useState<{ view: View; ms: number }>({
+    view: wide,
+    ms: 0,
+  });
+  const [cityIntro, setCityIntro] = useState(true);
+  const [full, setFull] = useState(false);
+  const pending = useRef<number[]>([]);
+  const intro = useRef<number[]>([]);
+  const busy = useRef(false);
+  const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const clear = (timers: number[]) =>
+    timers.forEach((timer) => window.clearTimeout(timer));
+
+  useEffect(() => {
+    if (reduce()) {
+      setCamera({ view: home, ms: 0 });
+      setCityIntro(false);
+      return;
+    }
+    intro.current = [
+      window.setTimeout(
+        () => setCamera({ view: { x: -17, y: 10, zoom: 1.09 }, ms: 1600 }),
+        150,
+      ),
+      window.setTimeout(() => setCamera({ view: home, ms: 1100 }), 1750),
+      window.setTimeout(() => setCityIntro(false), 2300),
+    ];
+    return () => {
+      clear(intro.current);
+      clear(pending.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        notesKey,
+        JSON.stringify({ index, started, page } satisfies SpeakerState),
+      );
+    } catch {
+      /* Speaker window is optional when storage is disabled. */
+    }
+  }, [index, started, page]);
+  useEffect(() => {
+    const changed = () => setFull(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', changed);
+    return () => document.removeEventListener('fullscreenchange', changed);
+  }, []);
+
+  function skipIntro() {
+    if (!cityIntro) return;
+    clear(intro.current);
+    setCityIntro(false);
+    setCamera({ view: home, ms: 360 });
+  }
+  function navigate(
+    to: number,
+    options: { skip?: boolean; person?: number } = {},
+  ) {
+    if (!chapters[to] || (!options.skip && busy.current)) return;
+    if (to === index && !busy.current) {
+      if (options.person !== undefined) setMember(options.person);
+      setMenu(null);
+      return;
+    }
+    clear(intro.current);
+    clear(pending.current);
+    setCityIntro(false);
+    setMenu(null);
+    void audio.unlock();
+    const location = to === 2 ? 'burger' : to === 3 ? 'tea' : venue;
+    const person = options.person ?? member;
+    const noMotion = options.skip || reduce();
+    const shot =
+      to === 0
+        ? home
+        : to === 12
+          ? wide
+          : focus(
+              to === 1 ? points.team[person] : points[location],
+              to <= 3 ? 1.65 : 1.22,
+            );
+
+    function reveal() {
+      if (to === 2 || to === 3) setVenue(location);
+      if (to === 1) setMember(person);
+      setPage(0);
+      setIndex(to);
+    }
+    if (noMotion) {
+      busy.current = false;
+      setCamera({ view: shot, ms: 0 });
+      reveal();
+      setTransition('idle');
+      return;
+    }
+    busy.current = true;
+    setTransition(to === 0 ? 'out-short' : 'out');
+    audio.travel();
+    if (to !== 0) setCamera({ view: shot, ms: 820 });
+    pending.current = [
+      window.setTimeout(
+        () => {
+          reveal();
+          setTransition('in');
+          if (to === 0) setCamera({ view: home, ms: 820 });
+          if (to === 12)
+            setCamera({ view: { x: -48, y: -17, zoom: 0.68 }, ms: 2400 });
+          audio.land();
+        },
+        to === 0 ? 320 : 690,
+      ),
+      window.setTimeout(
+        () => {
+          setTransition('idle');
+          busy.current = false;
+        },
+        to === 0 ? 1030 : 1110,
+      ),
+    ];
+  }
+  function defense() {
+    if (started !== null) {
+      setStarted(null);
+      setHidden(false);
+      return;
+    }
+    void audio.unlock();
+    setStarted(Date.now());
+    navigate(0, { skip: busy.current });
+    skipIntro();
+  }
+  function toggleSound() {
+    if (muted) void audio.unlock();
+    audio.setMuted(!muted);
+    setMuted(!muted);
+  }
+  function fullscreen() {
+    const app = document.querySelector('.app');
+    if (document.fullscreenElement)
+      void document.exitFullscreen().catch(() => {});
+    else if (app?.requestFullscreen)
+      void app.requestFullscreen().catch(() => setFull(false));
+  }
+  useEffect(() => {
+    function keys(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey || menu) return;
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest('input, textarea, select, [contenteditable]')
+      )
+        return;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        if (started === null) return;
+        event.preventDefault();
+        navigate(index + (event.key === 'ArrowRight' ? 1 : -1));
+      }
+      if (event.key === 'Escape' && hidden) setHidden(false);
+    }
+    window.addEventListener('keydown', keys);
+    return () => window.removeEventListener('keydown', keys);
+  });
+
+  const isMap = index === 0;
+  return (
+    <div
+      className={`app ${hidden ? 'clean' : ''}`}
+      onPointerDownCapture={() => {
+        void audio.unlock();
+      }}
+    >
+      <header className="topbar">
+        <button
+          type="button"
+          className="brand"
+          onClick={() => navigate(0)}
+          aria-label="Карта исследования"
+        >
+          <span className="brand-icon">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span>
+            <b>Полевое исследование</b>
+            <small>КЛИЕНТСКИЙ ОПЫТ</small>
+          </span>
+        </button>
+        <div className="top-actions">
+          <button
+            className="mode-label"
+            onClick={() => setMenu('chapters')}
+            aria-label="Открыть разделы"
+          >
+            {started === null ? 'Исследование города' : 'Режим защиты'}
+          </button>
+          <button
+            className="icon-button sound-button"
+            aria-label={muted ? 'Включить звук' : 'Выключить звук'}
+            title={muted ? 'Включить звук' : 'Выключить звук'}
+            onClick={toggleSound}
+          >
+            <span aria-hidden="true">{muted ? '♪×' : '♪'}</span>
+          </button>
+          <button
+            className="icon-button"
+            title={
+              full ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'
+            }
+            aria-label={
+              full ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'
+            }
+            onClick={fullscreen}
+          >
+            ⛶
+          </button>
+          <button className="primary" onClick={defense}>
+            {started === null ? (
+              <>
+                <i aria-hidden="true" className="play-shape" /> Начать защиту
+              </>
+            ) : (
+              'Завершить защиту'
+            )}
+          </button>
+        </div>
+      </header>
+
+      <main
+        className={`stage ${isMap ? 'map-mode' : 'chapter-mode'} ${index === 12 ? 'finale' : ''}`}
+        aria-label={isMap ? 'Карта исследования' : chapters[index].title}
+        onPointerDownCapture={skipIntro}
+      >
+        <City
+          target={camera.view}
+          duration={camera.ms}
+          disabled={!isMap || transition !== 'idle'}
+          showUI={isMap || index === 12}
+          onVenue={(v) => navigate(v === 'burger' ? 2 : 3)}
+          onPerson={(person) => navigate(1, { person })}
+          onCampus={() => navigate(1)}
+        />
+        {isMap && (
+          <div className="map-hud">
+            <div className="map-title">
+              <p className="eyebrow">
+                <i /> Новосибирск · м. Студенческая
+              </p>
+              <h1>
+                Исследование
+                <br />
+                клиентского опыта<span aria-hidden="true">.</span>
+              </h1>
+              <p className="subtitle">Burger King и «Молочай»</p>
+            </div>
+            <div className="map-guide">
+              <span>
+                <i className="legend-venue" />
+                Заведения
+              </span>
+              <span>
+                <i className="legend-team" />
+                Команда
+              </span>
+            </div>
+            <div className="compass">
+              <b>С</b>
+              <i />
+              <span>54°59′ с. ш.</span>
+            </div>
+          </div>
+        )}
+        {!isMap && (
+          <section
+            className={`chapter chapter-${index}`}
+            key={index}
+            aria-labelledby="scene-title"
+            inert={leaving}
+          >
+            <div className="chapter-nav">
+              <button className="back" onClick={() => navigate(0)}>
+                ← Назад в город
+              </button>
+            </div>
+            <ChapterScene
+              index={index}
+              venue={venue}
+              setVenue={setVenue}
+              member={member}
+              setMember={setMember}
+            />
+            <Speech
+              key={`${index}-${page}`}
+              index={index}
+              page={page}
+              setPage={setPage}
+              muted={muted}
+              enabled={!leaving}
+            />
+          </section>
+        )}
+        <div className={`curtain ${transition}`} aria-hidden="true" />
+      </main>
+
+      <footer className="footer">
+        <div className="footer-start">
+          <button className="sections" onClick={() => setMenu('chapters')}>
+            <span aria-hidden="true">▤</span>
+            <b>Разделы</b>
+          </button>
+          <button className="text-button" onClick={() => setMenu('appendix')}>
+            Приложения
+          </button>
+        </div>
+        <div
+          className="section-progress"
+          aria-label={`Раздел ${index + 1} из ${chapters.length}`}
+        >
+          <span>
+            {number(index + 1)} / {number(chapters.length)}
+          </span>
+          <div className="segments">
+            {chapters.map((chapter, step) => (
+              <button
+                key={step}
+                title={chapter.menu}
+                aria-label={`Раздел ${step + 1}. ${chapter.menu}`}
+                aria-current={step === index ? 'step' : undefined}
+                className={step <= index ? 'filled' : ''}
+                onClick={() => navigate(step)}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="footer-end">
+          {started !== null && (
+            <>
+              <time
+                className={elapsed >= defenseSeconds ? 'overtime' : ''}
+                aria-label="Таймер защиты"
+              >
+                {timecode(elapsed)} / {timecode(defenseSeconds)}
+              </time>
+              <a
+                className="text-button"
+                href="?mode=notes"
+                target="geting-following-notes"
+                rel="noopener"
+              >
+                Заметки
+              </a>
+              <button
+                className="icon-button hide-control"
+                title="Скрыть панель"
+                aria-label="Скрыть панель"
+                onClick={() => setHidden(true)}
+              >
+                ◫
+              </button>
+            </>
+          )}
+          <button
+            className="icon-button nav-arrow"
+            aria-label="Предыдущая сцена"
+            disabled={index === 0}
+            onClick={() => navigate(index - 1)}
+          >
+            ←
+          </button>
+          <button
+            className="icon-button nav-arrow"
+            aria-label="Следующая сцена"
+            disabled={index === chapters.length - 1}
+            onClick={() => navigate(index + 1)}
+          >
+            →
+          </button>
+        </div>
+      </footer>
+      {hidden && (
+        <button
+          className="restore"
+          aria-label="Показать панель"
+          title="Показать панель"
+          onClick={() => setHidden(false)}
+        >
+          ◫
+        </button>
+      )}
+      {menu === 'chapters' && (
+        <Dialog onClose={() => setMenu(null)} label="Разделы исследования">
+          <h2>Разделы исследования</h2>
+          <label className="instant">
+            <input
+              type="checkbox"
+              checked={instant}
+              onChange={(event) => setInstant(event.target.checked)}
+            />{' '}
+            Перейти без анимации
+          </label>
+          <ol className="chapter-list">
+            {chapters.map((chapter, i) => (
+              <li key={i}>
+                <button
+                  aria-current={index === i ? 'step' : undefined}
+                  onClick={() => navigate(i, { skip: instant })}
+                >
+                  <span>{number(i + 1)}</span>
+                  <b>{chapter.menu}</b>
+                  <small>{timecode(chapter.seconds)}</small>
+                </button>
+              </li>
+            ))}
+          </ol>
+          <a
+            className="paper-link"
+            href="?mode=summary"
+            target="_blank"
+            rel="noopener"
+          >
+            Executive summary · печать и PDF ↗
+          </a>
+        </Dialog>
+      )}
+      {menu === 'appendix' && (
+        <Dialog onClose={() => setMenu(null)} label="Приложения">
+          <Appendix />
+        </Dialog>
+      )}
+    </div>
+  );
+}
+
+const mode = new URLSearchParams(location.search).get('mode');
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener(
+    'load',
+    () =>
+      void navigator.serviceWorker
+        .register(import.meta.env.BASE_URL + 'sw.js')
+        .catch(() => {
+          // Local HTTP hosting remains usable without a service worker.
+        }),
+  );
+}
+createRoot(document.getElementById('root')!).render(
+  mode === 'summary' ? (
+    <Summary />
+  ) : mode === 'notes' ? (
+    <SpeakerWindow />
+  ) : (
+    <App />
+  ),
+);

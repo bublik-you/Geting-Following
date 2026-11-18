@@ -1,93 +1,211 @@
-import {test,expect} from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-test('all 18 chapters, narration, transition lock, back, mute and replay',async({page},testInfo)=>{
- const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- page.on('response',r=>{if(r.status()>=400)errors.push(`${r.status()} ${r.url()}`);});
- page.on('requestfailed',r=>errors.push(`${r.url()}: ${r.failure()?.errorText}`));
- await page.emulateMedia({reducedMotion:'reduce'});await page.goto('./');
- await expect(page.getByRole('button',{name:'Начать путешествие'})).toBeEnabled();
- await expect(page.locator('canvas')).toBeVisible();
- await page.getByRole('button',{name:'Начать путешествие'}).click();
- await expect(page.locator('.scene-count')).toContainText('01');
- await expect(page.locator('.dialogue')).toBeVisible();
- await page.keyboard.press('ArrowRight'); // reveal first sentence in full
- await expect(page.locator('.dialogue-bottom')).toContainText('ПРОДОЛЖИТЬ');
- const first=await page.locator('.dialogue p[aria-hidden]').textContent();expect(first!.length).toBeGreaterThan(250);
- // A rapid second click during travel must not skip chapter 2.
- await page.evaluate(()=>{for(let i=0;i<4;i++)window.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'}));});
- await expect(page.locator('.scene-count')).toContainText('02');
- await expect(page.locator('.presentation')).not.toHaveClass(/is-moving/);
- for(let i=2;i<=18;i++){
-  await expect(page.locator('.scene-count')).toContainText(String(i).padStart(2,'0'));
-  await expect(page.locator('.presentation')).not.toHaveClass(/is-moving/);
+async function jump(page: Page, label: string) {
+  await page.getByRole('button', { name: 'Разделы', exact: true }).click();
+  const menu = page.getByRole('dialog', { name: 'Разделы исследования' });
+  await menu.getByLabel('Перейти без анимации').check();
+  await menu.getByRole('button', { name: new RegExp(label) }).click();
+}
+
+test('city, team and two venue entrances', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    'клиентского опыта',
+  );
+  await expect(page.locator('.pin.team button')).toHaveCount(4);
+  const king = page.getByRole('button', { name: 'Burger King', exact: true });
+  await king.hover();
+  await expect(
+    page.getByRole('button', { name: 'Открыть исследование Burger King' }),
+  ).toContainText('[Добавить фото]');
+  await page
+    .getByRole('button', { name: 'Открыть исследование Burger King' })
+    .click();
+  await expect(page.locator('.chapter-2')).toBeVisible();
+  await expect(page.locator('.speech-copy p')).toContainText('Burger King');
+  await page.getByRole('button', { name: 'Следующая реплика' }).click();
+  await expect(page.locator('.speech-copy p')).toContainText(
+    'Добавить цель и задачи',
+  );
+  await page.getByRole('button', { name: 'Назад в город' }).click();
+  await page.getByRole('button', { name: 'Участник 4', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: '[Имя участника 4]' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Участник 1', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: '[Имя участника 1]' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Назад в город' }).click();
+  await page.getByRole('button', { name: 'Молочай', exact: true }).hover();
+  await page
+    .getByRole('button', { name: 'Открыть исследование Молочай' })
+    .click();
+  await expect(page.locator('.chapter-3')).toContainText(
+    'ТЦ «Амстердам», этаж −1',
+  );
+  expect(errors).toEqual([]);
+});
+
+test('all thirteen sections and venue-scoped interactive templates', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await jump(page, 'Метод');
+  await page.getByRole('button', { name: /Измеряемые метрики/ }).click();
+  await expect(page.locator('.note p')).toHaveText('[Добавить данные]');
+  const teaTab = page
+    .getByRole('group', { name: 'Заведение' })
+    .getByRole('button', { name: 'Молочай', exact: true });
+  await teaTab.click();
+  await expect(teaTab).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.note p')).toHaveCount(0);
+  await jump(page, 'Портрет');
+  await page.getByRole('button', { name: 'Job story 4' }).click();
+  await expect(page.locator('.detail')).toContainText('Job story 4');
+  await jump(page, 'Путь клиента');
+  await page.getByRole('button', { name: 'Получение' }).click();
+  await expect(page.getByRole('heading', { name: /Получение/ })).toBeVisible();
+  await jump(page, 'Метрики');
+  await page.getByRole('button', { name: 'Сравнить заведения' }).click();
+  await page
+    .getByRole('button', { name: 'Время обслуживания', exact: true })
+    .click();
+  await expect(page.getByText('Данные ожидаются')).toHaveCount(2);
+  await expect(page.locator('.track i').first()).toHaveCSS('width', '0px');
+  await jump(page, 'Наблюдения');
+  await page.getByRole('button', { name: '[Наблюдение 4]' }).click();
+  await expect(page.locator('.observation-detail')).toContainText(
+    'Наблюдение 4',
+  );
+  await jump(page, 'Рекомендации');
+  await expect(page.locator('.matrix-grid button')).toHaveCount(0);
+  await page.getByRole('button', { name: '[Рекомендация 6]' }).click();
+  await expect(
+    page.getByRole('heading', { name: '[Рекомендация 6]' }),
+  ).toBeVisible();
+  await jump(page, '48 часов');
+  await expect(
+    page.getByRole('button', { name: '[Мероприятие 3]' }),
+  ).toBeVisible();
+  await jump(page, 'Риски');
+  await page
+    .getByRole('button', { name: 'Непроверенные предположения' })
+    .click();
+  await expect(page.locator('.detail')).toContainText(
+    'Непроверенные предположения',
+  );
+  await jump(page, 'Итоги');
+  await expect(page.locator('.conclusions')).toContainText('Вывод 3');
+  await expect(page.getByText('Спасибо за внимание!')).toBeVisible();
+  await expect(page.locator('.segments button')).toHaveCount(13);
+});
+
+test('touch: pinch does not open a marker, tap opens and dismisses preview', async ({
+  browser,
+  baseURL,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 900, height: 600 },
+    hasTouch: true,
+    isMobile: true,
+    reducedMotion: 'reduce',
+  });
+  const page = await context.newPage();
+  await page.goto(baseURL!);
+  const burger = page.getByRole('button', { name: 'Burger King', exact: true });
+  const pin = await burger.boundingBox();
+  const canvas = (await page.locator('.city-canvas').boundingBox())!;
+  const cdp = await context.newCDPSession(page);
+  const x = Math.round(pin!.x + pin!.width / 2);
+  const y = Math.round(pin!.y + pin!.height / 2);
+  const start = [
+    { x, y, id: 1 },
+    { x: x + 28, y: y + 55, id: 2 },
+  ];
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: start,
+  });
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [
+      { x: x - 9, y: y - 9, id: 1 },
+      { x: x + 53, y: y + 82, id: 2 },
+    ],
+  });
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+  await expect(page.locator('.venue-preview')).toHaveCount(0);
+  await expect(page.locator('.map-mode')).toBeVisible();
+  await page.getByRole('button', { name: 'Вернуть общий план' }).tap();
+  await burger.tap();
+  await expect(
+    page.getByRole('button', { name: 'Открыть исследование Burger King' }),
+  ).toBeVisible();
+  await page.touchscreen.tap(canvas.x + 12, canvas.y + canvas.height / 2);
+  await expect(page.locator('.venue-preview')).toHaveCount(0);
+  await burger.tap();
+  await page
+    .getByRole('button', { name: 'Открыть исследование Burger King' })
+    .tap();
+  await expect(page.locator('.chapter-2')).toBeVisible();
+  await context.close();
+});
+
+test('seven-minute manual defense, synced notes, print view and offline reload', async ({
+  page,
+  context,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Начать защиту' }).click();
+  await expect(page.getByLabel('Таймер защиты')).toContainText('07:00');
   await page.keyboard.press('ArrowRight');
-  await expect(page.locator('.dialogue-bottom')).toContainText(i===18?'КОНЕЦ':'ПРОДОЛЖИТЬ');
-  await expect(page.locator('.dialogue p[aria-hidden]')).not.toBeEmpty();
-  if(i===17){
-   await page.emulateMedia({reducedMotion:'no-preference'});
-   await page.keyboard.press('ArrowRight');
-   await expect(page.locator('.presentation')).toHaveAttribute('data-finale','gathering');
-   await expect(page.locator('.presentation')).toHaveAttribute('data-finale','singularity',{timeout:15000});
-   await page.emulateMedia({reducedMotion:'reduce'});
-  }else if(i<18)await page.keyboard.press('ArrowRight');
- }
- await expect(page.getByText('Спасибо за внимание!',{exact:true})).toBeVisible();
- await expect(page.locator('.presentation')).toHaveAttribute('data-finale','singularity');
- await page.screenshot({path:testInfo.outputPath('singularity.png')});
- await page.keyboard.press('ArrowRight');await expect(page.locator('.scene-count')).toContainText('18');
- await page.keyboard.press('ArrowLeft');await expect(page.locator('.scene-count')).toContainText('17');
- await expect(page.locator('.presentation')).toHaveAttribute('data-finale','idle');
- await expect(page.locator('.presentation')).not.toHaveClass(/is-moving/);
- await page.getByRole('button',{name:'Выключить звук'}).click();await expect(page.getByRole('button',{name:'Включить звук'})).toHaveAttribute('aria-pressed','true');
- await page.getByRole('button',{name:'Начать заново'}).click();await expect(page.locator('.scene-count')).toContainText('01');
- await expect(page.locator('.presentation')).not.toHaveClass(/is-moving/);
- await page.keyboard.press('ArrowRight');await page.waitForTimeout(1000);await expect(page.locator('.scene-count')).toContainText('01');
- expect(errors).toEqual([]);
-});
-
-test('Android tablet touch, text bounds and landscape resizing',async({browser,baseURL})=>{
- test.setTimeout(180000); // Full touch journey plus four viewport sizes on software-rendered Chromium.
- const context=await browser.newContext({baseURL,viewport:{width:1024,height:768},hasTouch:true,isMobile:true,deviceScaleFactor:1,reducedMotion:'reduce'});const page=await context.newPage();
- await page.goto('./');await page.getByRole('button',{name:'Начать путешествие'}).tap();
- await page.locator('.dialogue').tap(); // finish typing
- await expect(page.locator('.dialogue-bottom')).toContainText('ПРОДОЛЖИТЬ');
- for(const size of [{width:1024,height:768},{width:1280,height:720},{width:800,height:1280},{width:390,height:844}]){
-  await page.setViewportSize(size);await page.waitForTimeout(150);
-  const box=await page.locator('.dialogue').boundingBox();expect(box).not.toBeNull();expect(box!.x).toBeGreaterThan(0);expect(box!.x+box!.width).toBeLessThanOrEqual(size.width);expect(box!.y).toBeGreaterThan(90);expect(box!.y+box!.height).toBeLessThan(size.height-70);
-  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);expect(overflow).toBe(false);
- }
- await page.setViewportSize({width:1024,height:768});
- for(let i=2;i<=18;i++){
-  await page.touchscreen.tap(12,380);
-  await expect(page.locator('.scene-count')).toContainText(String(i).padStart(2,'0'));
-  await expect(page.locator('.presentation')).not.toHaveClass(/is-moving/);
-  await page.locator('.dialogue').tap();
-  await expect(page.locator('.dialogue-bottom')).toContainText(i===18?'КОНЕЦ':'ПРОДОЛЖИТЬ');
- }
- await expect(page.getByText('Спасибо за внимание!',{exact:true})).toBeVisible();
- await expect(page.locator('.presentation')).toHaveAttribute('data-finale','singularity');
- await context.close();
-});
-
-test('normal camera transitions ignore repeated input and do not advance on their own',async({page})=>{
- await page.goto('./');await page.getByRole('button',{name:'Начать путешествие'}).click();await page.keyboard.press('ArrowRight');
- await page.keyboard.press('ArrowRight');await expect(page.locator('.presentation')).toHaveClass(/is-moving/);
- await page.evaluate(()=>{for(let i=0;i<12;i++)window.dispatchEvent(new KeyboardEvent('keydown',{key:i%2?'ArrowRight':'ArrowLeft'}));});
- await expect(page.locator('.scene-count')).toContainText('02');await expect(page.locator('.presentation')).not.toHaveClass(/is-moving/);
- await page.keyboard.press('ArrowRight');await expect(page.locator('.dialogue-bottom')).toContainText('ПРОДОЛЖИТЬ');
- await page.waitForTimeout(800);await expect(page.locator('.scene-count')).toContainText('02');
-});
-
-test('speech synthesizes audio after a gesture and stops when muted or revealed',async({page})=>{
- await page.addInitScript(()=>{
-  const nativeStart=OscillatorNode.prototype.start;
-  (window as unknown as {scheduledTones:number}).scheduledTones=0;
-  OscillatorNode.prototype.start=function(when?:number){(window as unknown as {scheduledTones:number}).scheduledTones++;return nativeStart.call(this,when);};
- });
- await page.goto('./');await page.getByRole('button',{name:'Начать путешествие'}).click();
- const tones=()=>page.evaluate(()=>(window as unknown as {scheduledTones:number}).scheduledTones);
- await expect.poll(tones).toBeGreaterThan(2);
- await page.getByRole('button',{name:'Выключить звук'}).click();const mutedCount=await tones();await page.waitForTimeout(600);expect(await tones()).toBe(mutedCount);
- await page.getByRole('button',{name:'Включить звук'}).click();await expect.poll(tones).toBeGreaterThan(mutedCount);
- await page.keyboard.press('ArrowRight');const revealedCount=await tones();await page.waitForTimeout(600);expect(await tones()).toBe(revealedCount);
+  await expect(
+    page.getByRole('heading', { name: 'Команда исследования' }),
+  ).toBeVisible();
+  const notes = await context.newPage();
+  await notes.goto('?mode=notes');
+  await expect(
+    notes.getByRole('heading', { name: 'Команда', exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press('ArrowLeft');
+  await expect(
+    notes.getByRole('heading', { name: 'Карта', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Скрыть панель' }).click();
+  await expect(page.getByLabel('Таймер защиты')).toBeHidden();
+  await page.getByRole('button', { name: 'Показать панель' }).click();
+  await expect(page.getByLabel('Таймер защиты')).toBeVisible();
+  await page.getByRole('button', { name: 'Приложения' }).click();
+  await page.getByText('Обезличенные цитаты').click();
+  await expect(
+    page
+      .getByText('[Добавить материал]', { exact: true })
+      .filter({ visible: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller))
+    .toBe(true);
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    'клиентского опыта',
+  );
+  await page.goto('?mode=summary');
+  await expect(
+    page.getByRole('button', { name: 'Печать / PDF' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Три ключевых вывода' }),
+  ).toBeVisible();
+  await context.setOffline(false);
 });
