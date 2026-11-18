@@ -1,171 +1,865 @@
-import Phaser from 'phaser';
-import { chapters, type Chapter } from './story';
-import { audio } from './audio';
-import { CORE, CosmicNetwork, makeWizardTextures, Nebula } from './cosmos';
-export interface WorldBridge { ready: () => void; arrived: (index:number) => void; finale: (state:'idle'|'gathering'|'singularity') => void; }
-let seed=2026;
-function random(a:number,b:number){seed=(seed*16807)%2147483647;return a+(seed/2147483647)*(b-a);}
-const C={bark:0x221840,edge:0x689dff,dark:0x110c2e,leaf:0x3436a0,light:0x6379d2,mint:0x6be5f7,cream:0xf0eaff};
-function block(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h:number,c:number,a=1){g.fillStyle(c,a);g.fillRect(Math.round(x),Math.round(y),w,h);}
-function bubble(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h:number,c:number){block(g,x+4,y,w-8,h,c);block(g,x,y+4,w,h-8,c);block(g,x+10,y+h-1,6,7,c);}
-function label(s:Phaser.Scene,x:number,y:number,t:string,color='#d8cdff',size=14){return s.add.text(x,y,t,{fontFamily:'monospace',fontSize:size,color,align:'center',padding:{x:5,y:3}}).setOrigin(.5);}
+import { localFile, team } from './data/content';
+import type { Venue } from './data/content';
 
-export class Journey extends Phaser.Scene {
- private network!:CosmicNetwork;
- private hero!:Phaser.GameObjects.Sprite;
- private ride!:Phaser.GameObjects.Container;
- private world!:Phaser.GameObjects.Container;
- private bridge:WorldBridge;
- private moving=false;
- private talking=false;
- private chapter=0;
- private arrivalTime=0;
- private foliage:Phaser.GameObjects.Image[]=[];
- private effects:Phaser.GameObjects.Container[]=[];
- private destination(index:number){return index===17?{...chapters[index],x:CORE.x,y:CORE.y,zoom:.58}:index===16?{...chapters[index],x:480,y:-650}:chapters[index];}
- private aim(c:Chapter){const portrait=window.innerHeight>window.innerWidth;if(this.chapter===16)return portrait?{x:c.x,y:c.y-500}:{x:CORE.x-120,y:CORE.y-140};if(this.chapter===17)return {x:CORE.x-(portrait?0:440),y:CORE.y-(portrait?400:200)};return {x:c.x-(portrait?0:120),y:c.y-(portrait?300:210)};}
- private reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
- constructor(bridge:WorldBridge){super('journey');this.bridge=bridge;}
- create(){
-  seed=3481;this.makeTextures();this.world=this.add.container(0,0);
-  this.makeTree();chapters.slice(0,16).forEach((c,i)=>this.makeLocation(c,i));
-  this.network=new CosmicNetwork(this);
-  this.ride=this.add.container(0,0).setDepth(50);
-  this.hero=this.add.sprite(-210,0,'hero0').setScale(3).setOrigin(.5,1).setDepth(51);
-  this.cameras.main.setZoom(1);const start=this.aim(chapters[0]);this.cameras.main.centerOn(start.x,start.y);this.scale.on('resize',()=>{if(!this.moving){const a=this.aim(this.destination(this.chapter));this.cameras.main.centerOn(a.x,a.y);}});this.cameras.main.fadeIn(this.reduced?10:1400,15,9,46);
-  this.arrivalTime=this.time.now;
-  this.tweens.add({targets:this.hero,x:0,duration:this.reduced?10:1400,ease:'Sine.easeOut',onComplete:()=>{this.bridge.ready();}});
- }
- private makeTextures(){
-  const g=this.make.graphics({x:0,y:0});
-  for(let variant=0;variant<4;variant++){
-   g.clear();const colors=[0x22183e,0x2d2354,0x433c70,0x595b95,0x6e76b7];
-   for(let i=0;i<70;i++){
-    const x=random(10,170),y=random(12,86),nx=(x-90)/83,ny=(y-50)/42;
-    if(nx*nx+ny*ny>1)continue;
-    const size=Math.floor(random(14,32)/4)*4;
-    block(g,Math.floor(x/4)*4,Math.floor(y/4)*4,size,size,colors[Math.min(4,Math.floor((1-y/100)*3+random(0,2)))]);
-   }
-   g.generateTexture(`foliage${variant}`,190,110);
-  }
-  makeWizardTextures(this);
-  g.destroy();
- }
- private makeTree(){
-  const g=this.add.graphics().setDepth(1);this.world.add(g);
-  // A continuous trunk with visible roots, bark and branching routes.
-  const trunk=[{x:-170,y:130},{x:-110,y:-450},{x:-150,y:-850},{x:-80,y:-1250},{x:-65,y:-1650},{x:10,y:-2240},{x:65,y:-1690},{x:100,y:-1300},{x:80,y:-850},{x:150,y:-400},{x:190,y:130}];
-  g.fillStyle(C.bark);g.fillPoints(trunk,true);g.lineStyle(7,0x6f6cc0,.6);g.strokePoints(trunk,true);
-  for(let i=0;i<150;i++){const y=random(-2150,110),width=(y+2300)/2300*240+20,x=random(-width/2,width/2);block(g,x,y,random(2,5),random(8,70),i%3===0?0xa18455:0x2e394c,.6);}
-  for(let i=0;i<7;i++){g.lineStyle(24-i*2,C.bark);g.beginPath();g.moveTo(0,65);g.lineTo((i-3)*110,160);g.lineTo((i-3)*170,183);g.strokePath();}
-  for(let i=2;i<16;i++){
-   const c=chapters[i],sign=c.x<0?-1:1,points=[{x:0,y:c.y+240},{x:c.x*.48,y:c.y+75},{x:c.x,y:c.y+6},{x:c.x+sign*210,y:c.y-24}];
-   g.lineStyle(45,C.dark);g.strokePoints(points);g.lineStyle(31,C.bark);g.strokePoints(points);g.lineStyle(5,C.edge,.8);g.strokePoints(points.map(p=>({x:p.x,y:p.y-13})));g.lineStyle(2,0x7ef5ff,.7);g.strokePoints(points.map(p=>({x:p.x+8,y:p.y+2})));
-   for(let k=0;k<5;k++){
-    const x=c.x+random(-230,260),y=c.y+random(90,160);const f=this.add.image(x,y,`foliage${k%4}`).setScale(random(.8,1.5)).setDepth(3);this.foliage.push(f);this.world.add(f);
-   }
-  }
-  for(let i=0;i<38;i++){
-   const angle=random(Math.PI,Math.PI*2),r=random(650,1450),x=Math.cos(angle)*r,y=-1400+Math.sin(angle)*r*.5;
-   const f=this.add.image(x,y,`foliage${i%4}`).setScale(random(1,1.8)).setDepth(2).setAlpha(.85);this.world.add(f);
-  }
-  // A mossy forest floor and tiny flowers.
-  for(let i=0;i<70;i++){const x=i*38-1330,y=150+Math.sin(i)*12;block(g,x,y,45,18,0x44406b);block(g,x+7,y-5,20,8,0x6772ab);if(i%4===0){block(g,x+15,y-24,3,20,0x676eac);block(g,x+11,y-26,11,5,0x89ade4);}}
-  label(this,-225,133,'ДОВЕРИЕ', '#adbdff',12);label(this,0,160,'КУЛЬТУРА', '#adbdff',12);label(this,235,133,'ЦЕННОСТИ', '#adbdff',12);
-  const roots=this.add.graphics().setDepth(3);for(let i=0;i<9;i++){block(roots,random(-320,320),random(20,110),6,6,0xd8b578,.6);}this.world.add(roots);
- }
- private person(g:Phaser.GameObjects.Graphics,x:number,y:number,c=0x796fb9){block(g,x,y-21,9,9,0xe8c5a1);block(g,x-3,y-11,15,14,c);block(g,x-2,y+3,5,9,0x2f2443);block(g,x+6,y+3,5,9,0x2f2443);}
- private envelope(g:Phaser.GameObjects.Graphics,x:number,y:number,c=0x89ace5){block(g,x,y,32,21,c);g.lineStyle(2,0x63558e);g.strokePoints([{x,y},{x:x+16,y:y+12},{x:x+32,y}]);}
- private building(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h:number,c:number){block(g,x,y,w,h,c);block(g,x-6,y-9,w+12,10,0x40375f);block(g,x+4,y-12,w+4,4,0x7181bd);for(let row=0;row<2;row++)for(let col=0;col<Math.floor(w/25);col++){block(g,x+9+col*25,y+12+row*27,13,16,0x7f89d4);block(g,x+14+col*25,y+12+row*27,3,16,c);}block(g,x+w*.45,y+h-29,16,29,0x2c2241);}
- private makeLocation(c:Chapter,i:number){
-  const con=this.add.container(c.x,c.y).setDepth(6),g=this.add.graphics();con.add(g);this.effects[i]=con;
-  // Every destination is physically attached to the same tree.
-  block(g,-190,0,410,12,0x2b1e5a);block(g,-194,0,420,4,0x77d8f1);block(g,-165,12,370,13,0x3f3b62);
-  const sign=this.add.container(-154,-40), sg=this.add.graphics();block(sg,-55,-15,110,26,0x2f244b);block(sg,-52,-17,104,3,0x656fa9);block(sg,-3,11,6,30,0x735e44);sign.add(sg);sign.add(label(this,0,-3,i<4?'КОРНИ И СВЯЗИ':c.chapter.toUpperCase(),i===14?'#d1b4cf':'#d9ceff',11));con.add(sign);
-  switch(i){
-   case 0:case 1:{
-    for(let k=0;k<4;k++){this.person(g,90+k*28,-20,k%2?0xd0ad78:0x6d63a5);this.envelope(g,110+k*25,-100-k%2*20);}
-    const lantern=this.add.rectangle(-85,-110,13,19,0xeed49a,.9);con.add(lantern);this.tweens.add({targets:lantern,alpha:.4,yoyo:true,repeat:-1,duration:1600});break;
-   }
-   case 2:{for(let k=0;k<3;k++){this.person(g,-125+k*26,-24);this.person(g,95+k*26,-24,0xcba478);}g.lineStyle(3,0x808ad6,.6);g.strokePoints([{x:-75,y:-66},{x:0,y:-95},{x:100,y:-66}]);break;}
-   case 3:{
-    for(let k=0;k<6;k++){const e=this.add.graphics();this.envelope(e,0,0);e.setPosition(-120+k*52,-80-Math.sin(k)*30);con.add(e);this.tweens.add({targets:e,y:e.y-18,alpha:.35,duration:1400+k*130,yoyo:true,repeat:-1});}break;
-   }
-   case 4:{
-    for(let k=0;k<5;k++){const cloud=this.add.graphics();bubble(cloud,-80,-18,160,48,0xd9e3cb);cloud.setPosition(-210+k*110,-165-(k%2)*55).setAlpha(.32);con.add(cloud);this.tweens.add({targets:cloud,x:cloud.x+40,duration:5000+k*500,yoyo:true,repeat:-1});}
-    this.drawPlane(g,145,-50,1);break;
-   }
-   case 5:{
-    this.building(g,45,-140,145,140,0x565086);label(this,c.x+117,c.y-158,'ОТДЕЛЫ', '#b5dcff',12);
-    for(let k=0;k<3;k++){this.person(g,60+k*38,-25);const e=this.add.graphics();this.envelope(e,0,0,0x9f87e1);e.setPosition(-120,-70);con.add(e);this.tweens.add({targets:e,x:62+k*40,y:-50,alpha:0,delay:k*500,duration:2100,repeat:-1,repeatDelay:600});}break;
-   }
-   case 6:{for(let k=0;k<5;k++){bubble(g,-190+k*88,-100-(k%2)*50,65,28,k%2?0x8ba6b5:0xc1d7cf);block(g,-180+k*88,-92-(k%2)*50,35,3,0x574979);}this.drawBird(g,130,-38,0);break;}
-   case 7:{this.building(g,25,-105,70,105,0x5f538b);this.building(g,110,-150,75,150,0x625f9e);this.person(g,-83,-24,0xd69f86);this.person(g,-32,-24);bubble(g,-105,-100,70,30,0xdfb09b);bubble(g,-15,-153,75,30,0x828dd9);block(g,-90,-88,36,3,0x8e6258);block(g,-2,-140,45,3,0x555187);break;}
-   case 8:case 9:{
-    block(g,36,-300,163,300,0x231836);block(g,30,-285,175,270,0x231836);block(g,42,-273,151,235,0x3b315f);block(g,94,-289,45,5,0x5b5085);block(g,107,-22,18,8,0x57538b);
-    bubble(g,55,-245,105,45,0x7f84d3);bubble(g,72,-177,105,53,0x7368ae);bubble(g,55,-106,105,41,0x7f84d3);
-    for(let n=0;n<3;n++){block(g,65,-232+n*68,65,3,0x49416d);block(g,65,-222+n*68,48,3,0x49416d);}
-    if(i===9){con.add(this.add.text(60,-237,'Где заказ?',{fontFamily:'monospace',fontSize:12,color:'#254f4a'}));con.add(this.add.text(78,-168,'Завтра,\nс 10 до 14',{fontFamily:'monospace',fontSize:12,color:'#153d36'}));}break;
-   }
-   case 10:{this.building(g,-145,-106,86,106,0x605994);this.building(g,50,-150,85,150,0x5d5187);this.building(g,148,-95,62,95,0x5e699c);block(g,-151,-73,97,10,0xd5b582);label(this,c.x-103,c.y-81,'КАФЕ','#e1cfff',11);for(let k=0;k<5;k++)this.person(g,-20+k*26,-16,k%2?0xb49b7f:0x7568ad);break;}
-   case 11:{
-    block(g,-60,-235,280,216,0x251c3c);block(g,-70,-243,300,13,0x7c7356);block(g,-46,-219,252,167,0xbccdb5);block(g,-46,-219,21,167,0xa47566);block(g,185,-219,21,167,0xa47566);
-    const film=this.add.graphics();con.add(film);film.setPosition(80,-137);
-    let f=0;const paint=()=>{film.clear();const color=[0x564c7f,0x678297,0x596894,0x8b736c][f%4];block(film,-102,-64,204,128,color);if(f%4===0){block(film,-28,-35,56,70,0x86a3e0);block(film,-16,-22,32,24,0x7870bb);}else if(f%4===1){this.person(film,-10,10,0xd5b88a);bubble(film,15,-35,60,35,0x87a6e1);}else if(f%4===2){for(let n=0;n<4;n++)block(film,-70+n*35,-30,25,12+n*10,0x8193d7);}else {bubble(film,-65,-35,70,33,0xc6d9c0);bubble(film,10,5,70,33,0xe0c19b);}f++;};paint();this.time.addEvent({delay:2400,loop:true,callback:paint});
-    for(let n=0;n<6;n++){block(g,-32+n*37,-5,25,13,0x92745b);this.person(g,-24+n*37,-17);}break;
-   }
-   case 12:{this.building(g,38,-160,150,160,0x524b7d);for(let k=0;k<3;k++)this.person(g,62+k*43,-25);bubble(g,75,-140,72,35,0x8091d6);break;}
-   case 13:{const symbols=['↗','↔','◇','✦','⌁'];for(let k=0;k<5;k++){const emblem=this.add.container(-160+k*78,-105-(k%2)*38),bg=this.add.graphics();bubble(bg,-22,-20,44,40,0x6676aa);emblem.add(bg);emblem.add(label(this,0,0,symbols[k],'#f5e8bb',27));con.add(emblem);if(!this.reduced)this.tweens.add({targets:emblem,y:emblem.y-13,duration:1400+k*130,yoyo:true,repeat:-1});}break;}
-   case 14:{for(let k=0;k<14;k++){const leaf=this.add.rectangle(random(-180,210),random(-220,-40),10,5,k%2?0x6780ac:0x53558b,.65);con.add(leaf);this.tweens.add({targets:leaf,x:leaf.x+160,y:leaf.y+120,alpha:0,angle:180,duration:2200+k*100,repeat:-1});}block(g,110,-80,65,5,0x687bad);block(g,130,-100,6,85,0x4a547b);break;}
-   case 15:{this.building(g,38,-155,150,155,0x64558d);g.fillStyle(0x8171bd);g.fillEllipse(113,-154,156,90);block(g,110,-221,6,42,0x818bd7);block(g,100,-229,27,8,0x818bd7);for(let k=0;k<4;k++)block(g,63+k*27,-83-k*12,16,42+k*12,0x7e7bcd);g.lineStyle(3,0xf0dca5);g.strokePoints([{x:-150,y:-64},{x:-120,y:-99},{x:-83,y:-83},{x:-45,y:-137}]);break;}
-  }
- }
- private drawPlane(g:Phaser.GameObjects.Graphics,x:number,y:number,scale:number){
-  g.fillStyle(0x8bace8);g.fillPoints([{x:x-68*scale,y:y-4},{x:x+75*scale,y:y-28*scale},{x:x+4*scale,y:y+34*scale},{x:x-12*scale,y:y+8*scale}],true);
-  g.fillStyle(0x7f71bc);g.fillPoints([{x:x-12*scale,y:y+8*scale},{x:x+75*scale,y:y-28*scale},{x:x+4*scale,y:y+15*scale}],true);
-  g.lineStyle(2,0x64558d,.8);g.lineBetween(x-12*scale,y+8*scale,x+75*scale,y-28*scale);
- }
- private drawBird(g:Phaser.GameObjects.Graphics,x:number,y:number,frame:number){
-  block(g,x-48,y,92,27,0x7561a2);block(g,x-36,y-10,65,20,0x8573bf);block(g,x+28,y-22,33,36,0xb8d1c1);block(g,x+58,y-10,19,8,0xe1bc75);block(g,x+48,y-16,4,4,0x2e2440);block(g,x-74,y-8,32,14,0x65538a);
-  const wing=frame%2===0?-40:14;block(g,x-31,y+wing,22,45,0x635289);block(g,x-22,y+wing+5,25,25,0x7567ac);
- }
- setTalking(value:boolean){this.talking=value;}
- go(index:number){
-  if(this.moving)return;
-  this.reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  this.chapter=index;this.moving=true;this.talking=false;audio.travel();
-  const final=index===17,c=this.destination(index),from={x:this.hero.x,y:this.hero.y},duration=this.reduced?120:final?5600:c.motion==='zoom'?2600:2100;
-  this.bridge.finale(final?'gathering':'idle');
-  (this.scene.get('atmosphere') as Nebula).focusFinale(final,this.reduced);
-  this.tweens.add({targets:this.network,strength:final?1:index===16?.8:.18,twist:final?1:0,convergence:final?1:0,duration,ease:'Sine.easeInOut'});
-  this.tweens.add({targets:[this.world,...this.effects],alpha:final?.24:index===16?.65:1,duration});
-  this.ride.removeAll(true);const vehicle=this.add.graphics();this.ride.add(vehicle);
-  if(c.motion==='plane')this.drawPlane(vehicle,0,8,1.15);if(c.motion==='bird')this.drawBird(vehicle,0,10,0);
-  this.ride.setVisible(c.motion==='plane'||c.motion==='bird');
-  const camera=this.cameras.main,aim=this.aim(c);camera.pan(aim.x,aim.y,duration,'Sine.easeInOut',true);camera.zoomTo(c.zoom,duration,'Sine.easeInOut',true);
-  const travel={t:0};this.tweens.add({targets:travel,t:1,duration,ease:'Sine.easeInOut',onUpdate:()=>{
-   const t=travel.t,arch=c.motion==='walk'?Math.sin(t*Math.PI)*35:Math.sin(t*Math.PI)*(c.motion==='climb'?65:180);
-   if(final){
-    const dx=from.x-CORE.x,dy=from.y-CORE.y,r=Math.hypot(dx,dy)*Math.pow(1-t,1.2),angle=Math.atan2(dy,dx)+(this.reduced?0:Math.sin(t*Math.PI)*2.4);
-    this.hero.setPosition(CORE.x+Math.cos(angle)*r,CORE.y+Math.sin(angle)*r);this.hero.setScale(3-t*.3);
-   }else{this.hero.setScale(3);this.hero.setPosition(Phaser.Math.Linear(from.x,c.x,t),Phaser.Math.Linear(from.y,c.y,t)-arch);}
-   this.ride.setPosition(this.hero.x,this.hero.y+12);
-   this.hero.setFlipX(!final&&c.x<from.x);this.hero.setTexture(final?'hero8':c.motion==='plane'||c.motion==='bird'?'hero6':`hero${2+Math.floor(t*16)%4}`);
-   if(c.motion==='bird'){vehicle.clear();this.drawBird(vehicle,0,10,Math.floor(t*14));}
-  },onComplete:()=>{camera.panEffect.reset();camera.zoomEffect.reset();camera.setZoom(c.zoom);camera.centerOn(aim.x,aim.y);this.moving=false;this.hero.setFlipX(false);this.hero.setPosition(c.x,c.y);this.ride.setPosition(c.x,c.y+12);this.arrivalTime=this.time.now;audio.land();this.bridge.finale(final?'singularity':'idle');this.bridge.arrived(index);}});
-  this.cameras.main.setBackgroundColor(index===14?'rgba(20,6,48,0.24)':'rgba(0,0,0,0)');
- }
- update(t:number){
-  if(!this.hero)return;
-  this.network.render(t,this.reduced);
-  if(!this.moving){
-   const c=this.destination(this.chapter),speaking=this.talking&&Math.floor(t/170)%2===0;let frame=speaking?1:0;
-   if(c.mood==='point')frame=speaking?7:8;if(c.mood==='think')frame=10;if(c.mood==='phone')frame=9;if(c.mood==='shelter')frame=12;if(c.mood==='happy'&&!this.talking)frame=Math.floor(t/600)%2?11:0;
-   if(this.chapter===4||this.chapter===5||this.chapter===6)frame=6;
-   this.hero.setTexture(`hero${frame}`);const bob=this.reduced?0:Math.sin(t*.003)*1.4;this.hero.y=c.y+bob;this.ride.y=c.y+12+bob;
-   if(this.chapter===17&&t-this.arrivalTime>500)this.hero.setTexture(Math.floor(t/450)%2?'hero11':'hero8');
-  }
- }
+type XY = [number, number];
+export type View = { x: number; y: number; zoom: number };
+type Draw = (ctx: CanvasRenderingContext2D) => void;
+type Lot = {
+  x: number;
+  y: number;
+  w: number;
+  d: number;
+  h: number;
+  kind: 'campus' | 'mall' | 'burger' | 'block' | 'metro' | 'stop';
+};
+export const home: View = { x: -22, y: -23, zoom: 1 };
+export const wide: View = { x: -48, y: -19, zoom: 0.8 };
+
+const project = (x: number, y: number, z = 0): XY => [
+  x + y * 0.46,
+  y * 0.64 - x * 0.12 - z,
+];
+const rect = (
+  c: CanvasRenderingContext2D,
+  color: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) => {
+  c.fillStyle = color;
+  c.fillRect(Math.round(x), Math.round(y), w, h);
+};
+function poly(c: CanvasRenderingContext2D, color: string, points: XY[]) {
+  c.fillStyle = color;
+  c.beginPath();
+  points.forEach(([x, y], i) =>
+    i
+      ? c.lineTo(Math.round(x), Math.round(y))
+      : c.moveTo(Math.round(x), Math.round(y)),
+  );
+  c.closePath();
+  c.fill();
 }
-// React handles navigation; Phaser must not suppress browser clicks after touch events.
-export function createWorld(parent:HTMLElement,bridge:WorldBridge){return new Phaser.Game({type:Phaser.AUTO,parent,width:1280,height:800,transparent:true,input:{keyboard:false,mouse:false,touch:false,gamepad:false},pixelArt:true,roundPixels:true,antialias:false,scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},render:{powerPreference:'low-power'},fps:{target:60,min:24},scene:[new Nebula(),new Journey(bridge)],audio:{noAudio:true},banner:false});}
+function plane(
+  c: CanvasRenderingContext2D,
+  color: string,
+  x: number,
+  y: number,
+  w: number,
+  d: number,
+  z = 0,
+) {
+  poly(c, color, [
+    project(x, y, z),
+    project(x + w, y, z),
+    project(x + w, y + d, z),
+    project(x, y + d, z),
+  ]);
+}
+function line(
+  c: CanvasRenderingContext2D,
+  color: string,
+  a: XY,
+  b: XY,
+  width = 1,
+) {
+  c.strokeStyle = color;
+  c.lineWidth = width;
+  c.beginPath();
+  c.moveTo(...a);
+  c.lineTo(...b);
+  c.stroke();
+}
+function lettering(
+  c: CanvasRenderingContext2D,
+  text: string,
+  color: string,
+  x: number,
+  y: number,
+  size: number,
+  width?: number,
+) {
+  c.fillStyle = color;
+  c.font = `bold ${size}px monospace`;
+  c.textBaseline = 'top';
+  c.fillText(text, Math.round(x), Math.round(y), width);
+}
+
+const burger: Lot = { x: 63, y: -79, w: 83, d: 43, h: 34, kind: 'burger' };
+const mall: Lot = { x: -197, y: 44, w: 126, d: 53, h: 46, kind: 'mall' };
+const campus: Lot = { x: 66, y: 125, w: 129, d: 57, h: 48, kind: 'campus' };
+const metro: Lot = { x: -42, y: -66, w: 28, d: 27, h: 14, kind: 'metro' };
+const people: XY[] = [
+  [55, 139],
+  [-45, 82],
+  [88, -29],
+  [-150, 110],
+];
+const pin = (lot: Lot) =>
+  project(lot.x + lot.w * 0.54, lot.y + lot.d * 0.64, lot.h + 6);
+
+export const points = {
+  burger: pin(burger),
+  tea: pin(mall),
+  campus: pin(campus),
+  metro: pin(metro),
+  team: people.map(([x, y]) => project(x, y, 22)),
+};
+export const focus = ([x, y]: XY, zoom = 1.55): View => ({
+  x,
+  y: y + 18,
+  zoom,
+});
+
+type Hit = Venue | `team-${number}`;
+function contains([x, y]: XY, polygon: XY[]) {
+  return polygon.every(([ax, ay], index) => {
+    const [bx, by] = polygon[(index + 1) % polygon.length];
+    return (bx - ax) * (y - ay) - (by - ay) * (x - ax) >= 0;
+  });
+}
+const footprints = (
+  [
+    ['burger', burger],
+    ['tea', mall],
+  ] as const
+).map(([id, { x, y, w, d, h }]) => ({
+  id,
+  polygon: [
+    project(x, y, h),
+    project(x + w, y, h),
+    project(x + w, y + d, h),
+    project(x + w, y + d),
+    project(x, y + d),
+  ],
+}));
+export function pickCity(at: XY, margin = 0): Hit | null {
+  const [x, y] = at;
+  const person = people.findIndex(([px, py]) => {
+    const [a, b] = project(px, py);
+    return (
+      Math.abs(x - a) <= 7 + margin && y >= b - 28 - margin && y <= b + margin
+    );
+  });
+  if (person >= 0) return `team-${person}`;
+  return footprints.find(({ polygon }) => contains(at, polygon))?.id ?? null;
+}
+
+const sprites = [
+  {
+    hair: '#493328',
+    shine: '#805639',
+    skin: '#edac77',
+    coat: '#267768',
+    light: '#58b096',
+    pants: '#263a41',
+    hairStyle: 0,
+  },
+  {
+    hair: '#332934',
+    shine: '#784855',
+    skin: '#bd7e56',
+    coat: '#a34b67',
+    light: '#e88eaa',
+    pants: '#352c43',
+    hairStyle: 1,
+  },
+  {
+    hair: '#74462b',
+    shine: '#bb7744',
+    skin: '#f7c397',
+    coat: '#cf8333',
+    light: '#ffd07b',
+    pants: '#473832',
+    hairStyle: 2,
+  },
+  {
+    hair: '#24323c',
+    shine: '#495462',
+    skin: '#a9664c',
+    coat: '#555c9f',
+    light: '#9ba7df',
+    pants: '#30334c',
+    hairStyle: 3,
+  },
+];
+export function drawPerson(
+  c: CanvasRenderingContext2D,
+  id: number,
+  x: number,
+  y: number,
+  time: number,
+  action: 'idle' | 'talk' | 'walk' | 'wave' = 'idle',
+) {
+  const { hair, shine, skin, coat, light, pants, hairStyle } =
+    sprites[id % sprites.length];
+  const phase = Math.floor(time / (action === 'idle' ? 300 : 135)) + id * 13;
+  const arm =
+    action === 'wave' || action === 'talk'
+      ? (phase % 3) - 1
+      : phase % 7 === 0
+        ? 1
+        : 0;
+  const step = action === 'walk' ? (phase % 3) - 1 : 0;
+  const face = phase % 12 > 9 ? -1 : 0;
+  const bob = phase % 6 === 0 ? 1 : 0;
+
+  rect(c, '#223f3a66', x - 7, y - 2, 15, 4);
+  rect(c, '#1f2c31', x - 6, y - 17, 12, 13);
+  rect(c, pants, x - 4, y - 7, 3, 6 + step);
+  rect(c, pants, x + 1, y - 7, 3, 6 - step);
+  rect(c, '#182929', x - 5, y - 2 + step, 4, 2);
+  rect(c, '#182929', x + 1, y - 2 - step, 4, 2);
+  rect(c, coat, x - 5, y - 15, 10, 8);
+  rect(c, light, x - 4, y - 14, 4, 2);
+  rect(c, coat, x + 5, y - 14 + arm * 2, 2, 5);
+  rect(c, skin, x + 5, y - 10 + arm * 2, 2, 2);
+  rect(c, skin, x - 7, y - 11 - step, 2, 3);
+  if (hairStyle === 1) rect(c, hair, x - 6, y - 22 + bob, 12, 10);
+  rect(c, hair, x - 5, y - 25 + bob, 10, 9);
+  rect(c, shine, x - 4, y - 24 + bob, 7, 2);
+  rect(c, skin, x - 4 + face, y - 21 + bob, 8, 6);
+  rect(c, hair, x - 5 + face, y - 22 + bob, 3, 3);
+  if (hairStyle === 2) {
+    rect(c, coat, x - 6, y - 25 + bob, 12, 3);
+    rect(c, light, x - 3, y - 26 + bob, 7, 2);
+  }
+  if (hairStyle === 3) rect(c, hair, x - 4, y - 27 + bob, 4, 4);
+  if (phase % 17 !== 12) {
+    rect(c, '#263233', x - 2 + face, y - 19 + bob, 1, 1);
+    rect(c, '#263233', x + 2 + face, y - 19 + bob, 1, 1);
+  }
+  if (action === 'talk' && phase % 2)
+    rect(c, '#8b5146', x + face, y - 17 + bob, 2, 1);
+}
+
+function rng(seed: number) {
+  return () => {
+    seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+}
+function tree(
+  c: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  seed: number,
+  size: number,
+) {
+  const random = rng(seed);
+  const greens = [
+    '#204d41',
+    '#29674e',
+    '#398362',
+    '#53996a',
+    '#72a671',
+    '#aac183',
+  ];
+  rect(c, '#24493c55', x - 4, y - 3, Math.round(size * 1.9), 5);
+  rect(c, '#4c4b35', x - 1, y - size, 3, size);
+  const pixels: [number, number, number, number][] = [];
+  for (let i = 0; i < 55; i++) {
+    const px = (random() * 2 - 1) * size,
+      py = (random() * 2 - 1) * size;
+    if (px * px + py * py > size * size) continue;
+    const light = Math.max(
+      0,
+      Math.min(5, Math.floor(3.5 - px / size - py / size + random() * 2 - 1)),
+    );
+    pixels.push([
+      x + px - 2,
+      y - size * 0.98 + py * 0.72 - 8,
+      light,
+      2 + Math.floor(random() * 5),
+    ]);
+  }
+  const t = y - size - 8;
+  poly(c, greens[0], [
+    [x - size, t - 4],
+    [x - size * 0.6, t - size * 0.62],
+    [x + size * 0.18, t - size * 0.75],
+    [x + size * 0.8, t - size * 0.45],
+    [x + size, t + 2],
+    [x + size * 0.6, t + size * 0.56],
+    [x - size * 0.45, t + size * 0.6],
+    [x - size, t + 4],
+  ]);
+  pixels
+    .sort((a, b) => a[1] - b[1])
+    .forEach(([px, py, l, s]) =>
+      rect(c, greens[l], px, py, s, Math.max(2, s - 1)),
+    );
+}
+
+const palettes = {
+  campus: ['#c9896b', '#87574e', '#ad6650', '#f0c39b', '#77473e', '#fde4a5'],
+  mall: ['#bb99a2', '#665666', '#956f84', '#e3bdc1', '#534f60', '#f8daa6'],
+  burger: ['#d39475', '#784938', '#9d5439', '#eebda0', '#61372d', '#ffe1a4'],
+  block: ['#b5af92', '#686d61', '#a09a82', '#dbd2aa', '#5b635b', '#f9dfa3'],
+  metro: ['#96aa8c', '#4d7566', '#6c8a7a', '#d9d9ae', '#3b625d', '#fce1aa'],
+  stop: ['#94ab9b', '#52756d', '#6c9589', '#ccd5b1', '#41665f', '#f4dfa1'],
+};
+
+function box(
+  c: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  d: number,
+  h: number,
+  colors: string[],
+  base = 0,
+) {
+  const a = project(x, y, h + base),
+    b = project(x + w, y, h + base),
+    f = project(x + w, y + d, h + base),
+    e = project(x, y + d, h + base);
+  poly(c, colors[1], [
+    b,
+    f,
+    project(x + w, y + d, base),
+    project(x + w, y, base),
+  ]);
+  poly(c, colors[2], [
+    e,
+    f,
+    project(x + w, y + d, base),
+    project(x, y + d, base),
+  ]);
+  poly(c, colors[0], [a, b, f, e]);
+  line(c, colors[3], a, e);
+  line(c, colors[3], e, f);
+}
+function building(c: CanvasRenderingContext2D, lot: Lot) {
+  const { x, y, w, d, h, kind } = lot;
+  const p = palettes[kind];
+  plane(c, '#253a4160', x + 8, y + 7, w + 14, d + 14);
+  plane(c, '#aeb694', x - 5, y - 4, w + 10, d + 12);
+  box(c, x, y, w, d, h, p);
+  const roof =
+    kind === 'mall' ? '#b38994' : kind === 'campus' ? '#b77d64' : '#a1a18a';
+  plane(c, roof, x + 3, y + 3, w - 6, d - 6, h + 0.4);
+  for (let k = 0; k < d - 5; k += 5) {
+    line(
+      c,
+      p[3] + '70',
+      project(x + 3, y + k + 3, h + 0.5),
+      project(x + w - 3, y + k + 3, h + 0.5),
+      0.55,
+    );
+  }
+  if (h > 25) {
+    box(
+      c,
+      x + w * 0.6,
+      y + 8,
+      w * 0.22,
+      d * 0.34,
+      5,
+      ['#b4b6a3', '#697b76', '#90988b', '#d7d5b4'],
+      h,
+    );
+    box(
+      c,
+      x + 9,
+      y + d * 0.4,
+      12,
+      8,
+      3,
+      ['#c4bea5', '#74776b', '#999a82', '#e2d5b4'],
+      h,
+    );
+    box(
+      c,
+      x + w * 0.65,
+      y + 11,
+      6,
+      5,
+      3,
+      ['#c3c3a9', '#626f65', '#878b77', '#e6ddba'],
+      h + 5,
+    );
+  }
+  const darkGlass = kind === 'mall' ? '#453e55' : '#313f43';
+  function sideWindow(
+    dy: number,
+    z: number,
+    depth: number,
+    height: number,
+    color: string,
+  ) {
+    poly(c, color, [
+      project(x + w, y + dy, z + height),
+      project(x + w, y + dy + depth, z + height),
+      project(x + w, y + dy + depth, z),
+      project(x + w, y + dy, z),
+    ]);
+  }
+  for (let z = 7; z < h - 6; z += 11) {
+    line(
+      c,
+      p[4] + '92',
+      project(x, y + d, z - 2),
+      project(x + w, y + d, z - 2),
+      0.75,
+    );
+    for (let dx = 5; dx < w - 5; dx += 10) {
+      const a = project(x + dx, y + d, z),
+        glass = (dx + z) % 7 < 3 ? p[5] : '#82a59c';
+      rect(c, p[4], a[0] - 1, a[1] - 7, 8, 8);
+      rect(c, darkGlass, a[0], a[1] - 6, 6, 6);
+      rect(c, glass, a[0] + 1, a[1] - 5, 4, 3);
+      rect(c, p[3], a[0] - 1, a[1], 8, 1);
+    }
+    for (let dy = 4; dy < d - 8; dy += 11) {
+      sideWindow(dy, z, 7, 6, darkGlass);
+      sideWindow(dy + 1, z + 2, 4, 3, (dy + z) % 9 < 5 ? '#86a39a' : p[5]);
+    }
+  }
+  if (kind === 'block') return;
+  const [fx, fy] = project(x + w * 0.5, y + d, h * 0.56);
+  if (kind === 'campus') {
+    for (const z of [12, h - 5]) {
+      line(c, '#f0cfab', project(x, y + d, z), project(x + w, y + d, z), 2);
+      line(c, '#dbc0a3', project(x + w, y, z), project(x + w, y + d, z), 2);
+    }
+    const steps = project(x + w * 0.5 - 17, y + d + 1);
+    for (let i = 0; i < 4; i++)
+      rect(
+        c,
+        i % 2 ? '#a28c72' : '#cfc1a0',
+        steps[0] - i * 2,
+        steps[1] + i * 2,
+        32 + i * 5,
+        2,
+      );
+    box(c, x + w * 0.5 - 18, y + d - 13, 38, 16, 32, [
+      '#d5ab83',
+      '#9b6758',
+      '#c18a67',
+      '#f3d4aa',
+    ]);
+    rect(c, '#3b5656', steps[0] + 6, steps[1] - 16, 22, 16);
+    for (let i = 0; i < 4; i++)
+      rect(c, '#edc196', steps[0] + i * 9, steps[1] - 17, 3, 18);
+    rect(c, '#693d39', fx - 17, fy - 5, 35, 12);
+    lettering(c, 'НГТУ', '#fff0cb', fx - 12, fy - 4, 10);
+  } else if (kind === 'burger' || kind === 'mall') {
+    if (kind === 'mall') {
+      const a = project(x + 14, y + d - 17, h + 5),
+        b = project(x + w - 14, y + d - 17, h + 5);
+      const e = project(x + 14, y + d, h - 16),
+        f = project(x + w - 14, y + d, h - 16);
+      poly(c, '#608887', [a, b, f, e]);
+      for (let u = 16; u < w - 14; u += 5)
+        line(
+          c,
+          u % 2 ? '#aac3a5' : '#567770',
+          project(x + u, y + d - 17, h + 5),
+          project(x + u, y + d, h - 16),
+          1,
+        );
+      line(c, '#d6c6ae', a, b, 2);
+      line(c, '#aab8a5', e, f, 2);
+    }
+    const sign = kind === 'burger' ? '#9f362c' : '#5f405d';
+    const label = kind === 'burger' ? 'BURGER KING' : 'АМСТЕРДАМ';
+    rect(c, sign, fx - 36, fy - 8, 72, 14);
+    rect(c, kind === 'burger' ? '#efb46a' : '#d5a2b5', fx - 36, fy - 8, 72, 1);
+    lettering(
+      c,
+      label,
+      '#fff0ce',
+      fx - (kind === 'burger' ? 32 : 28),
+      fy - 6,
+      9,
+    );
+    const [dx, dy] = project(x + w * 0.53, y + d);
+    if (kind === 'burger') {
+      rect(c, '#3e4d46', dx - 32, dy - 14, 21, 11);
+      rect(c, '#aab9a1', dx - 30, dy - 12, 17, 7);
+      rect(c, '#665346', dx - 24, dy - 12, 2, 7);
+    }
+    rect(c, '#354b50', dx - 12, dy - 12, 27, 12);
+    rect(c, '#a2b1a3', dx - 9, dy - 11, 9, 10);
+    rect(c, '#6f9792', dx + 2, dy - 11, 10, 10);
+    rect(c, '#f7d8a7', dx - 12, dy - 13, 27, 2);
+    if (kind === 'mall') {
+      rect(c, '#527554', dx - 16, dy - 23, 34, 8);
+      lettering(c, '−1 ↓', '#fff0ce', dx - 7, dy - 22, 7);
+    }
+  } else {
+    rect(c, '#244b49', fx - 9, fy - 5, 20, 11);
+    lettering(c, kind === 'metro' ? 'М' : '▤', '#e9e5b2', fx - 4, fy - 4, 9);
+  }
+}
+
+const random = rng(790);
+const lots: Lot[] = [
+  burger,
+  mall,
+  campus,
+  metro,
+  { x: 1, y: 75, w: 25, d: 14, h: 9, kind: 'stop' },
+  { x: -117, y: -70, w: 28, d: 14, h: 8, kind: 'stop' },
+  { x: 67, y: 208, w: 129, d: 45, h: 36, kind: 'campus' },
+  { x: 207, y: 103, w: 67, d: 61, h: 45, kind: 'campus' },
+  { x: 226, y: 192, w: 91, d: 55, h: 32, kind: 'campus' },
+];
+for (const x of [-530, -423, -323, -268, -167, -78, 64, 169, 275, 380, 476]) {
+  for (const y of [-350, -238, -146, 55, 146, 275]) {
+    if (
+      (x >= -200 && x <= -70 && y === 55) ||
+      (x >= 64 && x <= 275 && y >= 55 && y < 275)
+    )
+      continue;
+    const w = 30 + Math.floor(random() * 43),
+      d = 25 + Math.floor(random() * 42),
+      h = 20 + Math.floor(random() * 47);
+    if (x < 0 && x + w > -44) continue;
+    lots.push({ x, y, w, d, h, kind: 'block' });
+  }
+}
+
+const ground = document.createElement('canvas');
+ground.width = 1856;
+ground.height = 1100;
+const offset: XY = [928, 510];
+const g = ground.getContext('2d')!;
+g.translate(...offset);
+rect(g, '#83947a', -928, -510, 1856, 1100);
+
+for (let i = 0; i < 5100; i++) {
+  const x = random() * 1856 - 928,
+    y = random() * 1100 - 510;
+  rect(
+    g,
+    ['#a2ad89', '#6a896f', '#93a184', '#afae88'][i % 4],
+    x,
+    y,
+    1 + Math.floor(random() * 6),
+    1 + Math.floor(random() * 3),
+  );
+}
+
+// Prospekt runs across Geodezicheskaya. Bluchera parallels it on the Amsterdam side.
+function roads() {
+  for (const [x, y, w, d] of [
+    [-42, -650, 83, 1300],
+    [-257, -650, 51, 1300],
+    [-800, -31, 1600, 63],
+    [-800, 259, 1600, 38],
+    [-800, -125, 1600, 25],
+  ]) {
+    plane(g, '#79867a', x - 7, y - 6, w + 14, d + 12);
+    plane(g, '#cfc9aa', x - 5, y - 4, w + 10, d + 8);
+    plane(g, '#e0d9bd', x, y, w, d);
+    for (let k = -600; k < 620; k += 17) {
+      if ((w > d && Math.abs(k) < 53) || (d > w && Math.abs(k) < 37)) continue;
+      if (w > d) plane(g, '#f5edd2', k, y + d / 2, 8, 1.3);
+      else plane(g, '#f5edd2', x + w / 2, k, 1.5, 8);
+    }
+  }
+  for (let i = 0; i < 8; i++) {
+    plane(g, '#fcf1d2', -34 + i * 9, 37, 4, 13);
+    plane(g, '#fbf1d2', 47, -28 + i * 7, 13, 4);
+    plane(g, '#fbf1d2', -64, -28 + i * 7, 13, 4);
+    plane(g, '#fbf1d2', -34 + i * 9, -52, 4, 13);
+  }
+  notches(-33, 54, 64, 223);
+  notches(46, 72, 181, 28);
+  notches(-200, 39, 135, 70);
+  notches(47, -89, 106, 56);
+  for (let x = 65; x < 600; x += 34) {
+    plane(g, '#a0ac82', x, -5, 26, 8);
+    plane(g, '#b7bd94', x, -6, 26, 2);
+  }
+  for (const x of [-248, -223]) {
+    line(g, '#8d8d78', project(x, -510), project(x, 510), 1);
+    line(g, '#a1a08b', project(x + 3, -510), project(x + 3, 510), 1);
+  }
+}
+function notches(x: number, y: number, w: number, d: number) {
+  plane(g, '#bcba9d', x, y, w, d);
+  for (let j = 0; j < d; j += 7)
+    line(g, '#abae91', project(x, y + j), project(x + w, y + j), 0.6);
+  for (let j = 0; j < w; j += 9)
+    line(g, '#c8c6a4', project(x + j, y), project(x + j, y + d), 0.6);
+}
+roads();
+for (const lot of lots) {
+  const { x, y, w, d } = lot;
+  plane(g, '#aab293', x - 9, y - 7, w + 19, d + 22);
+  plane(g, '#c6bea0', x - 6, y + d + 4, w + 12, 12);
+}
+function streetText(text: string, x: number, y: number, angle: number) {
+  g.save();
+  g.translate(...project(x, y));
+  g.rotate(angle);
+  lettering(g, text, '#686f5b', 0, 0, 7);
+  g.restore();
+}
+streetText('УЛ. ГЕОДЕЗИЧЕСКАЯ', -181, 2, -0.119);
+streetText('ПР. КАРЛА МАРКСА', 2, 86, 0.946);
+streetText('УЛ. БЛЮХЕРА', -231, -25, 0.946);
+
+type Layer = {
+  x: number;
+  y: number;
+  depth: number;
+  draw: Draw;
+  bitmap?: HTMLCanvasElement;
+};
+const layers: Layer[] = [];
+function bake(
+  x: number,
+  y: number,
+  depth: number,
+  w: number,
+  h: number,
+  draw: Draw,
+) {
+  const bitmap = document.createElement('canvas');
+  bitmap.width = w;
+  bitmap.height = h;
+  const c = bitmap.getContext('2d')!;
+  c.translate(-x, -y);
+  draw(c);
+  layers.push({ x, y, depth, draw, bitmap });
+}
+for (const lot of lots) {
+  const [left, top] = project(lot.x, lot.y, lot.h);
+  bake(
+    Math.floor(left - 12),
+    Math.floor(top - lot.w * 0.12 - 13),
+    project(lot.x + lot.w * 0.5, lot.y + lot.d)[1],
+    Math.ceil(lot.w + lot.d * 0.46 + 62),
+    Math.ceil(lot.h + lot.d * 0.64 + lot.w * 0.12 + 52),
+    (c) => building(c, lot),
+  );
+}
+const landscaping: XY[] = [];
+for (let i = 0; i < 250; i++) {
+  const x = Math.round(random() * 1170 - 545),
+    y = Math.round(random() * 800 - 380);
+  if (
+    Math.abs(x) < 49 ||
+    Math.abs(x + 231) < 34 ||
+    Math.abs(y) < 36 ||
+    Math.abs(y + 112) < 20 ||
+    Math.abs(y - 277) < 22
+  )
+    continue;
+  if (
+    lots.some(
+      (b) =>
+        x > b.x - 8 && x < b.x + b.w + 8 && y > b.y - 7 && y < b.y + b.d + 9,
+    )
+  )
+    continue;
+  if (people.some(([a, b]) => Math.hypot(x - a, y - b) < 24)) continue;
+  landscaping.push([x, y]);
+}
+for (const y of [89, 116, 181, 216, 244]) landscaping.push([46, y]);
+for (const x of [79, 115, 153, 189, 227, 264, 297]) landscaping.push([x, 100]);
+for (const x of [-209, -180, -145, -113, -78]) landscaping.push([x, 123]);
+landscaping.forEach(([x, y], i) => {
+  const [a, b] = project(x, y),
+    size = 7 + Math.floor(random() * 7);
+  bake(
+    Math.floor(a - size - 4),
+    Math.floor(b - size * 2 - 13),
+    b,
+    size * 4 + 11,
+    size * 2 + 24,
+    (c) => tree(c, a, b, i + 32, size),
+  );
+});
+
+for (const [x, y] of [
+  [-48, 74],
+  [-48, 125],
+  [-49, 191],
+  [48, 69],
+  [49, 185],
+  [49, 231],
+  [-153, 37],
+  [152, 36],
+  [210, 36],
+  [118, -33],
+  [-167, -35],
+  [-71, 118],
+  [72, 107],
+  [179, 106],
+  [-218, 46],
+]) {
+  const [a, b] = project(x, y);
+  bake(Math.floor(a - 5), Math.floor(b - 24), b, 20, 32, (c) => {
+    rect(c, '#3b4d4155', a, b, 10, 2);
+    rect(c, '#4a5950', a, b - 19, 2, 20);
+    rect(c, '#5e6b53', a - 1, b - 19, 7, 2);
+    rect(c, '#ffe4a1', a + 3, b - 17, 4, 2);
+    if (x % 2 === 0) {
+      rect(c, '#4e543f', a + 6, b - 2, 1, 5);
+      rect(c, '#4e543f', a + 13, b - 2, 1, 5);
+      rect(c, '#86674d', a + 5, b - 5, 10, 4);
+      rect(c, '#bf9668', a + 5, b - 5, 10, 1);
+    }
+  });
+}
+layers.sort((a, b) => a.depth - b.depth);
+
+const portraits = team.map((member) => {
+  const file = localFile(member.avatar);
+  if (!file) return null;
+  const image = new Image();
+  image.src = file;
+  return image;
+});
+export function paintAvatar(
+  c: CanvasRenderingContext2D,
+  id: number,
+  x: number,
+  y: number,
+  time: number,
+  action?: 'idle' | 'talk' | 'walk' | 'wave',
+) {
+  const image = portraits[id];
+  if (image?.complete && image.naturalWidth) {
+    const bob = action === 'talk' && Math.floor(time / 155) % 2 ? 1 : 0;
+    c.drawImage(image, Math.round(x - 8), Math.round(y - 26 + bob), 16, 26);
+  } else drawPerson(c, id, x, y, time, action);
+}
+
+function car(
+  c: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+  vertical: boolean,
+  bus: boolean,
+) {
+  const w = bus ? 23 : 13,
+    d = 7;
+  const xSize = vertical ? d : w,
+    ySize = vertical ? w : d;
+  plane(c, '#525d4f65', x + 2, y + 3, xSize, ySize);
+  box(c, x, y, xSize, ySize, bus ? 7 : 4, [color, '#525f5a', color, '#e1d7aa']);
+  plane(
+    c,
+    '#415761',
+    x + 1,
+    y + 1,
+    xSize - 2,
+    vertical ? 4 : ySize - 2,
+    bus ? 7.5 : 4.5,
+  );
+  plane(c, '#a5b8a5', x + 1, y + 1, vertical ? 2 : 3, 2, bus ? 8 : 5);
+}
+
+export function paintCity(
+  c: CanvasRenderingContext2D,
+  view: View,
+  t: number,
+  highlight: string | null,
+) {
+  const { width, height } = c.canvas;
+  c.fillStyle = '#84967b';
+  c.fillRect(0, 0, width, height);
+  c.save();
+  c.imageSmoothingEnabled = false;
+  c.translate(
+    Math.round(width / 2 - view.x * view.zoom),
+    Math.round(height / 2 - view.y * view.zoom),
+  );
+  c.scale(view.zoom, view.zoom);
+  c.drawImage(ground, -offset[0], -offset[1]);
+
+  const moving: Layer[] = people.map(([x, y], id) => {
+    const [a, b] = project(x, y);
+    return {
+      x: a,
+      y: b,
+      depth: b,
+      draw: (ctx) => {
+        if (highlight === `team-${id}`) {
+          rect(ctx, '#f5d38b95', a - 10, b - 2, 21, 3);
+          rect(ctx, '#f5d38b75', a - 7, b - 4, 15, 7);
+        }
+        paintAvatar(
+          ctx,
+          id,
+          a,
+          b,
+          t,
+          highlight === `team-${id}` ? 'wave' : 'idle',
+        );
+      },
+    };
+  });
+  for (let i = 0; i < 13; i++) {
+    const vertical = i % 3 === 0;
+    const a =
+      ((((t * (i % 2 ? 0.013 : -0.017) + i * 91) % 1000) + 1000) % 1000) - 500;
+    const x = vertical ? (i % 2 ? 13 : -18) : a,
+      y = vertical ? a : i % 2 ? -18 : 18;
+    moving.push({
+      x,
+      y,
+      depth: project(x, y + 4)[1],
+      draw: (ctx) =>
+        car(
+          ctx,
+          x,
+          y,
+          ['#d38862', '#d0c6a1', '#85a9a0', '#ad7362', '#c1ba71'][i % 5],
+          vertical,
+          i === 6,
+        ),
+    });
+  }
+  for (let i = 0; i < 7; i++) {
+    const x = i % 2 === 0 ? -47 : 47,
+      y = ((t * 0.005 + i * 54) % 430) - 170;
+    if (Math.abs(y) < 34) continue;
+    const [a, b] = project(x, y);
+    moving.push({
+      x: a,
+      y: b,
+      depth: b,
+      draw: (ctx) => {
+        ctx.save();
+        ctx.translate(a, b);
+        ctx.scale(0.57, 0.57);
+        drawPerson(ctx, (i + 2) % 4, 0, 0, t + i * 89, 'walk');
+        ctx.restore();
+      },
+    });
+  }
+  moving.sort((a, b) => a.depth - b.depth);
+  const visibleLeft = view.x - width / (2 * view.zoom),
+    visibleTop = view.y - height / (2 * view.zoom);
+  const visibleRight = visibleLeft + width / view.zoom,
+    visibleBottom = visibleTop + height / view.zoom;
+  let index = 0;
+  for (const layer of layers) {
+    while (index < moving.length && moving[index].depth < layer.depth)
+      moving[index++].draw(c);
+    const image = layer.bitmap!;
+    if (
+      layer.x > visibleRight ||
+      layer.y > visibleBottom ||
+      layer.x + image.width < visibleLeft ||
+      layer.y + image.height < visibleTop
+    )
+      continue;
+    c.drawImage(image, layer.x, layer.y);
+  }
+  while (index < moving.length) moving[index++].draw(c);
+  if (highlight === 'burger' || highlight === 'tea') {
+    const { x, y, w, d, h } = highlight === 'burger' ? burger : mall;
+    plane(c, '#ffdea43c', x, y, w, d, h);
+  }
+  c.restore();
+}

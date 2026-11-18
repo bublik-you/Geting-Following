@@ -3,13 +3,14 @@ name: Deploy presentation to GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: github-pages
+  group: github-pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -34,11 +35,13 @@ jobs:
       - name: Test production website and all scenes
         run: npm test
       - name: Upload GitHub Pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     name: Publish GitHub Pages
     needs: build
     runs-on: ubuntu-24.04
