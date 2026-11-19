@@ -1,28 +1,36 @@
-name: Publish the offline infographics download
+name: Publish the offline infographics ZIP
 
 on:
   push:
     branches: [download/infographics-offline]
-    paths: [.github/workflows/publish-infographics-offline.yml]
+    paths:
+      - .github/workflows/publish-infographics-offline.yml
+      - presentation-2/offline/infographics-offline.zip
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Verify the approved offline presentation
+      - name: Verify the ZIP contains the approved offline presentation
         run: |
-          echo '0eb4a628b3d86cf53122d0f4bc5fbd695f7244fbf5f3409505b687a384419f3c  presentation-2/offline/infographics.html' | sha256sum --check
-      - name: Publish the single HTML file
+          archive=presentation-2/offline/infographics-offline.zip
+          unzip -t "$archive"
+          test "$(unzip -Z1 "$archive")" = infographics.html
+          unzip -p "$archive" infographics.html | cmp - presentation-2/offline/infographics.html
+      - name: Add the ZIP to the public offline release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create infographics-offline-v1 presentation-2/offline/infographics.html \
-            --target e3051fef5a482ddbe3b76a84a4ed5dff2780de52 \
-            --latest=false \
-            --title 'Сила инфографики и презентаций · Офлайн-версия' \
-            --notes 'Скачайте infographics.html, скопируйте файл на флешку и откройте его в Chrome. Презентация работает без интернета.'
+          archive=presentation-2/offline/infographics-offline.zip
+          if gh release download infographics-offline-v1 --pattern infographics-offline.zip --dir "$RUNNER_TEMP" 2>/dev/null; then
+            cmp "$archive" "$RUNNER_TEMP/infographics-offline.zip"
+          else
+            gh release upload infographics-offline-v1 "$archive"
+          fi
