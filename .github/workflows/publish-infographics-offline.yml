@@ -1,0 +1,28 @@
+name: Publish the offline infographics download
+
+on:
+  push:
+    branches: [download/infographics-offline]
+    paths: [.github/workflows/publish-infographics-offline.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the approved offline presentation
+        run: |
+          echo '0eb4a628b3d86cf53122d0f4bc5fbd695f7244fbf5f3409505b687a384419f3c  presentation-2/offline/infographics.html' | sha256sum --check
+      - name: Publish the single HTML file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create infographics-offline-v1 presentation-2/offline/infographics.html \
+            --target e3051fef5a482ddbe3b76a84a4ed5dff2780de52 \
+            --latest=false \
+            --title 'Сила инфографики и презентаций · Офлайн-версия' \
+            --notes 'Скачайте infographics.html, скопируйте файл на флешку и откройте его в Chrome. Презентация работает без интернета.'
